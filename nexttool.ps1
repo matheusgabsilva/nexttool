@@ -189,6 +189,95 @@ Add-Type -AssemblyName System.Windows.Forms
     <TabControl Grid.Row="1" x:Name="tabMain" Margin="8,0,8,0">
 
       <!-- ======================================================
+           ABA 0: SISTEMA
+      ====================================================== -->
+      <TabItem Header="  Sistema  ">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#1A1A2E">
+          <StackPanel Margin="22,16,22,16">
+
+            <TextBlock Text="Informações do Sistema" FontSize="15" FontWeight="Bold"
+                       Foreground="#0078D4" Margin="0,0,0,12"/>
+
+            <!-- Cards de info rapida -->
+            <Grid Margin="0,0,0,10">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+
+              <Border Grid.Column="0" Background="#12122A" CornerRadius="6" Padding="14,10">
+                <StackPanel>
+                  <TextBlock Text="COMPUTADOR" FontSize="10" Foreground="#606080" FontWeight="Bold" Margin="0,0,0,4"/>
+                  <TextBlock x:Name="cardPC" Text="—" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF" TextWrapping="Wrap"/>
+                  <TextBlock x:Name="cardOS" Text="—" FontSize="11" Foreground="#8080A8" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Border>
+
+              <Border Grid.Column="2" Background="#12122A" CornerRadius="6" Padding="14,10">
+                <StackPanel>
+                  <TextBlock Text="PROCESSADOR" FontSize="10" Foreground="#606080" FontWeight="Bold" Margin="0,0,0,4"/>
+                  <TextBlock x:Name="cardCPU" Text="—" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF" TextWrapping="Wrap"/>
+                  <TextBlock x:Name="cardRAM" Text="—" FontSize="11" Foreground="#8080A8" Margin="0,3,0,0"/>
+                </StackPanel>
+              </Border>
+
+              <Border Grid.Column="4" Background="#12122A" CornerRadius="6" Padding="14,10">
+                <StackPanel>
+                  <TextBlock Text="ARMAZENAMENTO" FontSize="10" Foreground="#606080" FontWeight="Bold" Margin="0,0,0,4"/>
+                  <TextBlock x:Name="cardDisk" Text="—" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF" TextWrapping="Wrap"/>
+                  <TextBlock x:Name="cardUser" Text="—" FontSize="11" Foreground="#8080A8" Margin="0,3,0,0"/>
+                </StackPanel>
+              </Border>
+            </Grid>
+
+            <!-- Detalhes completos -->
+            <GroupBox Header="Detalhes">
+              <StackPanel>
+                <TextBlock x:Name="txtSysInfo" Foreground="#C0C0E0" FontFamily="Consolas"
+                           FontSize="12" TextWrapping="Wrap" LineHeight="22"/>
+              </StackPanel>
+            </GroupBox>
+
+            <!-- Seguranca -->
+            <GroupBox Header="Segurança">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="8"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" x:Name="cardDefender" Background="#1A2A1A" CornerRadius="4" Padding="12,8">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="cardDefenderIcon" Text="●" Foreground="#50D090" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <StackPanel>
+                      <TextBlock Text="Windows Defender" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF"/>
+                      <TextBlock x:Name="cardDefenderTxt" Text="Verificando..." FontSize="11" Foreground="#8080A8"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+                <Border Grid.Column="2" x:Name="cardFW" Background="#1A2A1A" CornerRadius="4" Padding="12,8">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="cardFWIcon" Text="●" Foreground="#50D090" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <StackPanel>
+                      <TextBlock Text="Firewall" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF"/>
+                      <TextBlock x:Name="cardFWTxt" Text="Verificando..." FontSize="11" Foreground="#8080A8"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </Grid>
+            </GroupBox>
+
+            <Button x:Name="btnSysInfo" Content="↻  Atualizar" Style="{StaticResource BtnSecondary}"
+                    HorizontalAlignment="Left" Margin="0,4,0,0"/>
+
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- ======================================================
            ABA 1: INSTALACOES
       ====================================================== -->
       <TabItem Header="  Instalações  ">
@@ -286,14 +375,6 @@ Add-Type -AssemblyName System.Windows.Forms
               </WrapPanel>
             </GroupBox>
 
-            <GroupBox Header="Informações do Sistema" x:Name="grpSysInfo">
-              <StackPanel>
-                <TextBlock x:Name="txtSysInfo" Foreground="#C0C0E0" FontFamily="Consolas"
-                           FontSize="12" TextWrapping="Wrap" LineHeight="20"/>
-                <Button x:Name="btnSysInfo" Content="Atualizar Informações"
-                        Style="{StaticResource BtnSecondary}" HorizontalAlignment="Left" Margin="0,8,0,0"/>
-              </StackPanel>
-            </GroupBox>
 
           </StackPanel>
         </ScrollViewer>
@@ -435,6 +516,18 @@ $txtLog         = Get-Control "txtLog"
 $logScroll      = Get-Control "logScroll"
 $txtComputador  = Get-Control "txtComputador"
 $txtSysInfo     = Get-Control "txtSysInfo"
+$cardPC         = Get-Control "cardPC"
+$cardOS         = Get-Control "cardOS"
+$cardCPU        = Get-Control "cardCPU"
+$cardRAM        = Get-Control "cardRAM"
+$cardDisk       = Get-Control "cardDisk"
+$cardUser       = Get-Control "cardUser"
+$cardDefenderIcon = Get-Control "cardDefenderIcon"
+$cardDefenderTxt  = Get-Control "cardDefenderTxt"
+$cardDefender     = Get-Control "cardDefender"
+$cardFWIcon     = Get-Control "cardFWIcon"
+$cardFWTxt      = Get-Control "cardFWTxt"
+$cardFW         = Get-Control "cardFW"
 
 # Instalacoes
 $chkAcrobat     = Get-Control "chkAcrobat"
@@ -494,13 +587,13 @@ $global:nomePC    = $env:COMPUTERNAME
 
 function Write-GuiLog {
     param([string]$msg, [string]$color = "White")
-    $ts = (Get-Date).ToString("HH:mm:ss")
+    $ts   = [datetime]::Now.ToString("HH:mm:ss")
     $line = "[$ts]  $msg"
     $global:relatorio.Add($line)
-    $window.Dispatcher.Invoke([action]{
-        $txtLog.Text += "$line`n"
-        $logScroll.ScrollToBottom()
-    })
+    $capturedLine = $line
+    $action = [action]{ $txtLog.Text += "$capturedLine`n"; $logScroll.ScrollToBottom() }.GetNewClosure()
+    if ($window.Dispatcher.CheckAccess()) { & $action }
+    else { $window.Dispatcher.Invoke($action) }
 }
 
 function Invoke-BackgroundTask {
@@ -560,21 +653,24 @@ function Invoke-BackgroundTask {
     $timerRef.Interval = [timespan]::FromMilliseconds(250)
 
     $tickClosure = {
-        $line = ""
-        while ($global:syncHash.Queue.TryDequeue([ref]$line)) {
-            if ($line -eq "__DONE__") {
+        $msg = ""
+        while ($global:syncHash.Queue.TryDequeue([ref]$msg)) {
+            $ts   = [datetime]::Now.ToString("HH:mm:ss")
+            if ($msg -eq "__DONE__") {
                 $timerRef.Stop()
                 $global:syncHash.Running = $false
-                Write-GuiLog "Concluido." "Cyan"
+                $entry = "[$ts]  Concluido."
+                $global:relatorio.Add($entry)
+                $txtLog.Text += "$entry`n"
+                $logScroll.ScrollToBottom()
                 try { $ps.Dispose(); $rs.Dispose() } catch {}
                 return
             }
-            $color = "White"
-            if ($line -match "^\[OK\]")    { $color = "Green" }
-            if ($line -match "^\[ERRO\]")  { $color = "Red" }
-            if ($line -match "^\[INFO\]")  { $color = "Cyan" }
-            if ($line -match "^\[AVISO\]") { $color = "Yellow" }
-            Write-GuiLog ($line -replace "^\[\w+\]\s*","") $color
+            $display = $msg -replace "^\[\w+\]\s*",""
+            $entry   = "[$ts]  $display"
+            $global:relatorio.Add($entry)
+            $txtLog.Text += "$entry`n"
+            $logScroll.ScrollToBottom()
         }
     }.GetNewClosure()
 
@@ -812,7 +908,7 @@ function Invoke-Diagnostico {
 
     QLog "[INFO] === ERROS CRITICOS (ULTIMAS 24H) ==="
     try {
-        $events = Get-WinEvent -FilterHashtable @{LogName='System';Level=1,2;StartTime=(Get-Date).AddHours(-24)} `
+        $events = Get-WinEvent -FilterHashtable @{LogName='System';Level=1,2;StartTime=([datetime]::Now.AddHours(-24))} `
             -MaxEvents 10 -ErrorAction SilentlyContinue
         if ($events -and $events.Count -gt 0) {
             QLog "[AVISO] $($events.Count) erro(s) critico(s) nas ultimas 24h:"
@@ -848,22 +944,70 @@ function Invoke-SFCDISM {
     }
 }
 
-function Get-SysInfo {
-    $os   = Get-CimInstance Win32_OperatingSystem
-    $cpu  = (Get-CimInstance Win32_Processor | Select-Object -First 1).Name
-    $ram  = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1)
-    $free = [math]::Round($os.FreePhysicalMemory / 1MB, 1)
-    $disk = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -gt 0 } |
-            ForEach-Object { "$($_.Name): $([math]::Round($_.Free/1GB,1))GB livre de $([math]::Round(($_.Used+$_.Free)/1GB,1))GB" }
+function Update-SysInfo {
+    $os    = Get-CimInstance Win32_OperatingSystem
+    $cs    = Get-CimInstance Win32_ComputerSystem
+    $cpu   = (Get-CimInstance Win32_Processor | Select-Object -First 1).Name
+    $ramGB = [math]::Round($cs.TotalPhysicalMemory / 1GB, 1)
+    $freeGB= [math]::Round($os.FreePhysicalMemory / 1MB / 1024, 1)
+    $usedGB= [math]::Round($ramGB - $freeGB, 1)
+    $disks = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -gt 0 }
+    $diskSummary = ($disks | ForEach-Object {
+        "$($_.Name): $([math]::Round($_.Free/1GB,1))GB livre"
+    }) -join "  |  "
+    $diskDetail = ($disks | ForEach-Object {
+        $t = [math]::Round(($_.Used+$_.Free)/1GB,1)
+        $u = [math]::Round($_.Used/1GB,1)
+        $f = [math]::Round($_.Free/1GB,1)
+        "$($_.Name):  ${t}GB total  |  ${u}GB usado  |  ${f}GB livre"
+    }) -join "`n"
 
-    return @"
+    # Cards rapidos
+    $cardPC.Text   = $env:COMPUTERNAME
+    $cardOS.Text   = "$($os.Caption) $($os.OSArchitecture)"
+    $cardCPU.Text  = $cpu -replace "\s{2,}"," "
+    $cardRAM.Text  = "RAM: ${ramGB}GB total  |  ${usedGB}GB usada  |  ${freeGB}GB livre"
+    $cardDisk.Text = $diskSummary
+    $cardUser.Text = "Usuário: $($env:USERNAME)"
+
+    # Seguranca
+    try {
+        $def = Get-MpComputerStatus -ErrorAction Stop
+        if ($def.AntivirusEnabled) {
+            $cardDefenderIcon.Foreground = "#50D090"
+            $cardDefender.Background    = "#1A2A1A"
+            $cardDefenderTxt.Text = "Ativo  |  Def: $($def.AntivirusSignatureLastUpdated.ToString('dd/MM/yy'))"
+        } else {
+            $cardDefenderIcon.Foreground = "#C42B1C"
+            $cardDefender.Background    = "#2A1A1A"
+            $cardDefenderTxt.Text = "INATIVO"
+        }
+    } catch { $cardDefenderTxt.Text = "Indisponível" }
+
+    try {
+        $fw = Get-NetFirewallProfile -ErrorAction Stop | Where-Object { $_.Enabled } | Measure-Object
+        if ($fw.Count -gt 0) {
+            $cardFWIcon.Foreground = "#50D090"
+            $cardFW.Background    = "#1A2A1A"
+            $cardFWTxt.Text = "$($fw.Count) perfil(is) ativo(s)"
+        } else {
+            $cardFWIcon.Foreground = "#C42B1C"
+            $cardFW.Background    = "#2A1A1A"
+            $cardFWTxt.Text = "INATIVO"
+        }
+    } catch { $cardFWTxt.Text = "Indisponível" }
+
+    # Detalhes
+    $txtSysInfo.Text = @"
 Computador  : $($env:COMPUTERNAME)
-Usuario     : $($env:USERNAME)
+Usuário     : $($env:USERNAME)
+Domínio     : $($cs.Domain)
 SO          : $($os.Caption) $($os.OSArchitecture)
-CPU         : $cpu
-RAM         : ${ram}GB total | ${free}GB livre
-Disco       : $($disk -join " | ")
-Data/Hora   : $(Get-Date -Format 'dd/MM/yyyy HH:mm')
+Versão SO   : $($os.Version)
+CPU         : $($cpu -replace "\s{2,}"," ")
+RAM         : ${ramGB}GB total  |  ${usedGB}GB usada  |  ${freeGB}GB livre
+$diskDetail
+Data/Hora   : $([datetime]::Now.ToString('dd/MM/yyyy HH:mm'))
 "@
 }
 
@@ -945,7 +1089,7 @@ $txtComputador.Text = "$env:COMPUTERNAME  |  $env:USERNAME"
 
 # --- Sys info ao abrir ---
 $window.Add_Loaded({
-    $txtSysInfo.Text = Get-SysInfo
+    Update-SysInfo
 })
 
 # --- Limpar log ---
@@ -1040,7 +1184,7 @@ $btnRelatorio.Add_Click({
 })
 
 $btnSysInfo.Add_Click({
-    $txtSysInfo.Text = Get-SysInfo
+    Update-SysInfo
     Write-GuiLog "Informacoes do sistema atualizadas." "Cyan"
 })
 
