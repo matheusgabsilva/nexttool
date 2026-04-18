@@ -591,9 +591,10 @@ function Write-GuiLog {
     $line = "[$ts]  $msg"
     $global:relatorio.Add($line)
     $capturedLine = $line
-    $sb = { $txtLog.Text += "$capturedLine`n"; $logScroll.ScrollToBottom() }.GetNewClosure()
-    if ($window.Dispatcher.CheckAccess()) { & $sb }
-    else { $window.Dispatcher.Invoke([System.Action]$sb) }
+    $sh = $global:syncHash
+    $sb = [System.Action]{ $sh.Log.Text += "$capturedLine`n"; $sh.Scroll.ScrollToBottom() }
+    if ($sh.Log.Dispatcher.CheckAccess()) { $sh.Log.Text += "$capturedLine`n"; $sh.Scroll.ScrollToBottom() }
+    else { $sh.Log.Dispatcher.Invoke($sb) }
 }
 
 function QLog { param($m) if ($syncHash) { $syncHash.Queue.Enqueue($m) } }
@@ -650,34 +651,37 @@ function Invoke-BackgroundTask {
         $syncHash.Queue.Enqueue("__DONE__")
     })
 
-    $handle   = $ps.BeginInvoke()
-    $timerRef = New-Object System.Windows.Threading.DispatcherTimer
-    $timerRef.Interval = [timespan]::FromMilliseconds(250)
+    $handle = $ps.BeginInvoke()
 
-    $tickClosure = {
+    # Armazena referencias no syncHash para o tick acessar sem depender de closure
+    $global:syncHash.ActiveTimer = New-Object System.Windows.Threading.DispatcherTimer
+    $global:syncHash.ActiveTimer.Interval = [timespan]::FromMilliseconds(250)
+    $global:syncHash.ActivePS = $ps
+    $global:syncHash.ActiveRS = $rs
+
+    $global:syncHash.ActiveTimer.Add_Tick({
         $msg = ""
         while ($global:syncHash.Queue.TryDequeue([ref]$msg)) {
-            $ts   = [datetime]::Now.ToString("HH:mm:ss")
+            $ts = [datetime]::Now.ToString("HH:mm:ss")
             if ($msg -eq "__DONE__") {
-                $timerRef.Stop()
+                $global:syncHash.ActiveTimer.Stop()
                 $global:syncHash.Running = $false
                 $entry = "[$ts]  Concluido."
                 $global:relatorio.Add($entry)
-                $txtLog.Text += "$entry`n"
-                $logScroll.ScrollToBottom()
-                try { $ps.Dispose(); $rs.Dispose() } catch {}
+                $global:syncHash.Log.Text  += "$entry`n"
+                $global:syncHash.Scroll.ScrollToBottom()
+                try { $global:syncHash.ActivePS.Dispose(); $global:syncHash.ActiveRS.Dispose() } catch {}
                 return
             }
             $display = $msg -replace "^\[\w+\]\s*",""
             $entry   = "[$ts]  $display"
             $global:relatorio.Add($entry)
-            $txtLog.Text += "$entry`n"
-            $logScroll.ScrollToBottom()
+            $global:syncHash.Log.Text  += "$entry`n"
+            $global:syncHash.Scroll.ScrollToBottom()
         }
-    }.GetNewClosure()
+    })
 
-    $timerRef.Add_Tick($tickClosure)
-    $timerRef.Start()
+    $global:syncHash.ActiveTimer.Start()
 }
 
 # ================================================================
@@ -902,10 +906,10 @@ function Invoke-Diagnostico {
     } catch { QLog "[AVISO] Nao foi possivel verificar o Defender." }
 
     try {
-        Get-NetFirewallProfile -ErrorAction Stop | ForEach-Object {
-            $s = if ($_.Enabled) { "[OK]" } else { "[ERRO]" }
-            QLog "$s  Firewall [$($_.Name)]: $(if ($_.Enabled){'ATIVO'}else{'INATIVO'})"
-        }
+        $fwOut = netsh advfirewall show allprofiles state 2>&1 | Out-String
+        $onCount = ([regex]::Matches($fwOut, "(?i)State\s+ON")).Count
+        $s = if ($onCount -gt 0) { "[OK]" } else { "[ERRO]" }
+        QLog "$s  Firewall: $onCount perfil(is) ativo(s)"
     } catch { QLog "[AVISO] Nao foi possivel verificar Firewall." }
 
     QLog "[INFO] === ERROS CRITICOS (ULTIMAS 24H) ==="
@@ -993,11 +997,12 @@ function Update-SysInfo {
     } catch { $cardDefenderTxt.Text = "Indisponível" }
 
     try {
-        $fw = Get-NetFirewallProfile -ErrorAction Stop | Where-Object { $_.Enabled } | Measure-Object
-        if ($fw.Count -gt 0) {
+        $fwOut = netsh advfirewall show allprofiles state 2>&1 | Out-String
+        $onCount = ([regex]::Matches($fwOut, "(?i)State\s+ON")).Count
+        if ($onCount -gt 0) {
             $cardFWIcon.Foreground = $brushGreen
             $cardFW.Background    = $brushBgGood
-            $cardFWTxt.Text = "$($fw.Count) perfil(is) ativo(s)"
+            $cardFWTxt.Text = "$onCount perfil(is) ativo(s)"
         } else {
             $cardFWIcon.Foreground = $brushRed
             $cardFW.Background    = $brushBgBad
@@ -1013,27 +1018,26 @@ function Invoke-SetDNS {
     param([string]$Adapter, [string]$DNS1, [string]$DNS2)
     QLog "[INFO] Configurando DNS em '$Adapter' -> $DNS1 / $DNS2 ..."
     try {
-        $iface = Get-NetAdapter | Where-Object { $_.Name -like "*$Adapter*" -and $_.Status -eq "Up" } |
-                 Select-Object -First 1
-        if (-not $iface) {
-            QLog "[ERRO] Adaptador '$Adapter' nao encontrado ou inativo."
-            return
+        $r1 = netsh interface ip set dns name="$Adapter" static $DNS1 2>&1
+        $r2 = netsh interface ip add dns name="$Adapter" $DNS2 index=2 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            QLog "[OK] DNS configurado: $DNS1 / $DNS2 em '$Adapter'."
+        } else {
+            QLog "[ERRO] netsh: $r1 $r2"
         }
-        Set-DnsClientServerAddress -InterfaceIndex $iface.ifIndex -ServerAddresses $DNS1,$DNS2
-        QLog "[OK] DNS configurado: $DNS1 / $DNS2 em '$($iface.Name)'."
-    } catch {
-        QLog "[ERRO] $_"
-    }
+    } catch { QLog "[ERRO] $_" }
 }
 
 function Invoke-ResetDNS {
     param([string]$Adapter)
     QLog "[INFO] Resetando DNS de '$Adapter' para DHCP..."
     try {
-        $iface = Get-NetAdapter | Where-Object { $_.Name -like "*$Adapter*" } | Select-Object -First 1
-        if (-not $iface) { QLog "[ERRO] Adaptador nao encontrado."; return }
-        Set-DnsClientServerAddress -InterfaceIndex $iface.ifIndex -ResetServerAddresses
-        QLog "[OK] DNS resetado para DHCP automatico."
+        $r = netsh interface ip set dns name="$Adapter" dhcp 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            QLog "[OK] DNS resetado para DHCP em '$Adapter'."
+        } else {
+            QLog "[ERRO] netsh: $r"
+        }
     } catch { QLog "[ERRO] $_" }
 }
 
