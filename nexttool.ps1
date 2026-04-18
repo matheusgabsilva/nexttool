@@ -504,7 +504,11 @@ function Write-GuiLog {
 }
 
 function Invoke-BackgroundTask {
-    param([scriptblock]$Task, [string]$Label = "Tarefa")
+    param(
+        [scriptblock]$Task,
+        [string]$Label = "Tarefa",
+        [hashtable]$Vars = @{}
+    )
 
     if ($global:syncHash.Running) {
         Write-GuiLog "Aguarde a operacao atual terminar..." "Orange"
@@ -516,31 +520,50 @@ function Invoke-BackgroundTask {
 
     Write-GuiLog "Iniciando: $Label" "Cyan"
 
+    # Serializa todas as funcoes customizadas para o runspace
+    $fnNames = @(
+        "Install-Winget","Install-WingetApp","Install-Office",
+        "Invoke-TweakHibernacao","Invoke-TweakSmartApp","Invoke-TweakDrivers",
+        "Invoke-OtimizarPC","Invoke-Diagnostico","Invoke-SFCDISM",
+        "Invoke-SetDNS","Invoke-ResetDNS","Invoke-TestarConectividade","Invoke-JoinDomain"
+    )
+    $fnDefs = ($fnNames | ForEach-Object {
+        $fn = Get-Item "function:$_" -ErrorAction SilentlyContinue
+        if ($fn) { "function $_ {`n$($fn.ScriptBlock)`n}" }
+    }) -join "`n`n"
+
     $rs = [runspacefactory]::CreateRunspace()
     $rs.ApartmentState = "STA"
     $rs.ThreadOptions  = "ReuseThread"
     $rs.Open()
-    $rs.SessionStateProxy.SetVariable("syncHash", $global:syncHash)
-    $rs.SessionStateProxy.SetVariable("task", $Task)
+    $rs.SessionStateProxy.SetVariable("syncHash",    $global:syncHash)
+    $rs.SessionStateProxy.SetVariable("task",        $Task)
+    $rs.SessionStateProxy.SetVariable("fnDefs",      $fnDefs)
+    $rs.SessionStateProxy.SetVariable("rsOfficeXML", $script:OfficeXML)
+    foreach ($kv in $Vars.GetEnumerator()) {
+        $rs.SessionStateProxy.SetVariable($kv.Key, $kv.Value)
+    }
 
     $ps = [powershell]::Create()
     $ps.Runspace = $rs
 
     [void]$ps.AddScript({
         function QLog { param($m) $syncHash.Queue.Enqueue($m) }
+        Invoke-Expression $fnDefs
+        $script:OfficeXML = $rsOfficeXML
         try { & $task } catch { QLog "[ERRO] $_" }
         $syncHash.Queue.Enqueue("__DONE__")
     })
 
-    $handle = $ps.BeginInvoke()
+    $handle   = $ps.BeginInvoke()
+    $timerRef = New-Object System.Windows.Threading.DispatcherTimer
+    $timerRef.Interval = [timespan]::FromMilliseconds(250)
 
-    $timer = New-Object System.Windows.Threading.DispatcherTimer
-    $timer.Interval = [timespan]::FromMilliseconds(250)
-    $timer.Add_Tick({
+    $tickClosure = {
         $line = ""
         while ($global:syncHash.Queue.TryDequeue([ref]$line)) {
             if ($line -eq "__DONE__") {
-                $timer.Stop()
+                $timerRef.Stop()
                 $global:syncHash.Running = $false
                 Write-GuiLog "Concluido." "Cyan"
                 try { $ps.Dispose(); $rs.Dispose() } catch {}
@@ -553,8 +576,10 @@ function Invoke-BackgroundTask {
             if ($line -match "^\[AVISO\]") { $color = "Yellow" }
             Write-GuiLog ($line -replace "^\[\w+\]\s*","") $color
         }
-    })
-    $timer.Start()
+    }.GetNewClosure()
+
+    $timerRef.Add_Tick($tickClosure)
+    $timerRef.Start()
 }
 
 # ================================================================
@@ -874,10 +899,18 @@ function Invoke-ResetDNS {
 }
 
 function Invoke-TestarConectividade {
-    @("8.8.8.8","1.1.1.1","google.com") | ForEach-Object {
-        $r = Test-Connection $_ -Count 2 -ErrorAction SilentlyContinue
-        if ($r) { QLog "[OK] Ping ${_}: $([math]::Round(($r | Measure-Object ResponseTime -Average).Average,0))ms" }
-        else     { QLog "[ERRO] Ping $_ falhou." }
+    foreach ($target in @("8.8.8.8","1.1.1.1","google.com")) {
+        $ping = New-Object System.Net.NetworkInformation.Ping
+        try {
+            $reply = $ping.Send($target, 3000)
+            if ($reply.Status -eq "Success") {
+                QLog "[OK] Ping ${target}: $($reply.RoundtripTime)ms"
+            } else {
+                QLog "[ERRO] Ping ${target}: $($reply.Status)"
+            }
+        } catch {
+            QLog "[ERRO] Ping ${target} falhou: $_"
+        }
     }
 }
 
@@ -947,20 +980,19 @@ $btnInstall.Add_Click({
         return
     }
 
-    $capturedList   = $toInstall
-    $capturedOffice = $officeVer
-
-    Invoke-BackgroundTask -Label "Instalacao de Softwares" -Task {
-        if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-            Install-Winget
+    Invoke-BackgroundTask -Label "Instalacao de Softwares" `
+        -Vars @{ capturedList = [object[]]$toInstall; capturedOffice = $officeVer } `
+        -Task {
+            if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+                Install-Winget
+            }
+            foreach ($app in $capturedList) {
+                Install-WingetApp -Id $app.Id -Name $app.Name
+            }
+            if ($capturedOffice) {
+                Install-Office -Version $capturedOffice
+            }
         }
-        foreach ($app in $capturedList) {
-            Install-WingetApp -Id $app.Id -Name $app.Name
-        }
-        if ($capturedOffice) {
-            Install-Office -Version $capturedOffice
-        }
-    }
 })
 
 # --- Tweaks ---
@@ -974,11 +1006,13 @@ $btnTweaks.Add_Click({
         return
     }
 
-    Invoke-BackgroundTask -Label "Aplicar Tweaks" -Task {
-        if ($doHib)     { Invoke-TweakHibernacao }
-        if ($doSmart)   { Invoke-TweakSmartApp }
-        if ($doDrivers) { Invoke-TweakDrivers }
-    }
+    Invoke-BackgroundTask -Label "Aplicar Tweaks" `
+        -Vars @{ doHib = $doHib; doSmart = $doSmart; doDrivers = $doDrivers } `
+        -Task {
+            if ($doHib)     { Invoke-TweakHibernacao }
+            if ($doSmart)   { Invoke-TweakSmartApp }
+            if ($doDrivers) { Invoke-TweakDrivers }
+        }
 })
 
 # --- Manutencao ---
@@ -1012,15 +1046,14 @@ $btnSysInfo.Add_Click({
 
 # --- Rede / DNS ---
 $btnSetDNS.Add_Click({
-    $a = $txtAdapter.Text.Trim()
-    $d1 = $txtDNS1.Text.Trim()
-    $d2 = $txtDNS2.Text.Trim()
-    Invoke-BackgroundTask -Label "Configurar DNS" -Task { Invoke-SetDNS -Adapter $a -DNS1 $d1 -DNS2 $d2 }
+    $a = $txtAdapter.Text.Trim(); $d1 = $txtDNS1.Text.Trim(); $d2 = $txtDNS2.Text.Trim()
+    Invoke-BackgroundTask -Label "Configurar DNS" -Vars @{a=$a;d1=$d1;d2=$d2} `
+        -Task { Invoke-SetDNS -Adapter $a -DNS1 $d1 -DNS2 $d2 }
 })
 
 $btnResetDNS.Add_Click({
     $a = $txtAdapter.Text.Trim()
-    Invoke-BackgroundTask -Label "Resetar DNS" -Task { Invoke-ResetDNS -Adapter $a }
+    Invoke-BackgroundTask -Label "Resetar DNS" -Vars @{a=$a} -Task { Invoke-ResetDNS -Adapter $a }
 })
 
 $btnPing.Add_Click({
@@ -1050,9 +1083,9 @@ $btnJoinDomain.Add_Click({
         [System.Windows.MessageBoxImage]::Question)
 
     if ($result -eq "Yes") {
-        Invoke-BackgroundTask -Label "Ingresso no Dominio" -Task {
-            Invoke-JoinDomain -Domain $dom -User $user -Pass $pass -NewName $name
-        }
+        Invoke-BackgroundTask -Label "Ingresso no Dominio" `
+            -Vars @{dom=$dom;user=$user;pass=$pass;name=$name} `
+            -Task { Invoke-JoinDomain -Domain $dom -User $user -Pass $pass -NewName $name }
     }
 })
 
