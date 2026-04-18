@@ -591,10 +591,12 @@ function Write-GuiLog {
     $line = "[$ts]  $msg"
     $global:relatorio.Add($line)
     $capturedLine = $line
-    $action = [action]{ $txtLog.Text += "$capturedLine`n"; $logScroll.ScrollToBottom() }.GetNewClosure()
-    if ($window.Dispatcher.CheckAccess()) { & $action }
-    else { $window.Dispatcher.Invoke($action) }
+    $sb = { $txtLog.Text += "$capturedLine`n"; $logScroll.ScrollToBottom() }.GetNewClosure()
+    if ($window.Dispatcher.CheckAccess()) { & $sb }
+    else { $window.Dispatcher.Invoke([System.Action]$sb) }
 }
+
+function QLog { param($m) if ($syncHash) { $syncHash.Queue.Enqueue($m) } }
 
 function Invoke-BackgroundTask {
     param(
@@ -615,6 +617,7 @@ function Invoke-BackgroundTask {
 
     # Serializa todas as funcoes customizadas para o runspace
     $fnNames = @(
+        "QLog",
         "Install-Winget","Install-WingetApp","Install-Office",
         "Invoke-TweakHibernacao","Invoke-TweakSmartApp","Invoke-TweakDrivers",
         "Invoke-OtimizarPC","Invoke-Diagnostico","Invoke-SFCDISM",
@@ -641,10 +644,9 @@ function Invoke-BackgroundTask {
     $ps.Runspace = $rs
 
     [void]$ps.AddScript({
-        function QLog { param($m) $syncHash.Queue.Enqueue($m) }
         Invoke-Expression $fnDefs
         $script:OfficeXML = $rsOfficeXML
-        try { & $task } catch { QLog "[ERRO] $_" }
+        try { & $task } catch { $syncHash.Queue.Enqueue("[ERRO] $_") }
         $syncHash.Queue.Enqueue("__DONE__")
     })
 
