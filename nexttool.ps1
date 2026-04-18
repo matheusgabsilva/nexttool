@@ -876,7 +876,7 @@ function Invoke-ResetDNS {
 function Invoke-TestarConectividade {
     @("8.8.8.8","1.1.1.1","google.com") | ForEach-Object {
         $r = Test-Connection $_ -Count 2 -ErrorAction SilentlyContinue
-        if ($r) { QLog "[OK] Ping $_: $([math]::Round(($r | Measure-Object ResponseTime -Average).Average,0))ms" }
+        if ($r) { QLog "[OK] Ping ${_}: $([math]::Round(($r | Measure-Object ResponseTime -Average).Average,0))ms" }
         else     { QLog "[ERRO] Ping $_ falhou." }
     }
 }
