@@ -4,7 +4,7 @@
 # github.com/matheusgabsilva/nexttool
 #
 # Uso via URL:
-#   irm "https://raw.githubusercontent.com/matheusgabsilva/nexttool/main/nexttool.ps1" | iex
+#   irm "https://raw.githubusercontent.com/matheusgabsilva/nexttool/master/nexttool.ps1" | iex
 # ================================================================
 
 Set-StrictMode -Off
@@ -13,7 +13,7 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 # === ELEVACAO DE PRIVILEGIO ===
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -Command `"irm 'https://raw.githubusercontent.com/matheusgabsilva/nexttool/main/nexttool.ps1' | iex`"" -Verb RunAs
+    Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -Command `"irm 'https://raw.githubusercontent.com/matheusgabsilva/nexttool/master/nexttool.ps1' | iex`"" -Verb RunAs
     exit
 }
 
