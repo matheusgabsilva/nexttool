@@ -622,7 +622,7 @@ function Invoke-BackgroundTask {
         "Install-Winget","Install-WingetApp","Install-Office",
         "Invoke-TweakHibernacao","Invoke-TweakSmartApp","Invoke-TweakDrivers",
         "Invoke-OtimizarPC","Invoke-Diagnostico","Invoke-SFCDISM",
-        "Invoke-SetDNS","Invoke-ResetDNS","Invoke-TestarConectividade","Invoke-JoinDomain"
+        "Get-NicConfig","Invoke-SetDNS","Invoke-ResetDNS","Invoke-TestarConectividade","Invoke-JoinDomain"
     )
     $fnDefs = ($fnNames | ForEach-Object {
         $fn = Get-Item "function:$_" -ErrorAction SilentlyContinue
@@ -1014,17 +1014,24 @@ function Update-SysInfo {
 # ================================================================
 # REDE / DOMINIO
 # ================================================================
+function Get-NicConfig {
+    param([string]$Adapter)
+    Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled = TRUE" | Where-Object {
+        $na = Get-CimInstance Win32_NetworkAdapter -Filter "InterfaceIndex = $($_.InterfaceIndex)" -ErrorAction SilentlyContinue
+        $na -and $na.NetConnectionID -like "*$Adapter*"
+    } | Select-Object -First 1
+}
+
 function Invoke-SetDNS {
     param([string]$Adapter, [string]$DNS1, [string]$DNS2)
     QLog "[INFO] Configurando DNS em '$Adapter' -> $DNS1 / $DNS2 ..."
     try {
-        $r1 = netsh interface ip set dns name="$Adapter" static $DNS1 2>&1
-        $r2 = netsh interface ip add dns name="$Adapter" $DNS2 index=2 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            QLog "[OK] DNS configurado: $DNS1 / $DNS2 em '$Adapter'."
-        } else {
-            QLog "[ERRO] netsh: $r1 $r2"
-        }
+        $cfg = Get-NicConfig -Adapter $Adapter
+        if (-not $cfg) { QLog "[ERRO] Adaptador '$Adapter' nao encontrado."; return }
+        $r = Invoke-CimMethod -InputObject $cfg -MethodName SetDNSServerSearchOrder `
+             -Arguments @{ DNSServerSearchOrder = [string[]]@($DNS1, $DNS2) }
+        if ($r.ReturnValue -eq 0) { QLog "[OK] DNS configurado: $DNS1 / $DNS2." }
+        else { QLog "[AVISO] Concluido com codigo WMI: $($r.ReturnValue)" }
     } catch { QLog "[ERRO] $_" }
 }
 
@@ -1032,12 +1039,12 @@ function Invoke-ResetDNS {
     param([string]$Adapter)
     QLog "[INFO] Resetando DNS de '$Adapter' para DHCP..."
     try {
-        $r = netsh interface ip set dns name="$Adapter" dhcp 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            QLog "[OK] DNS resetado para DHCP em '$Adapter'."
-        } else {
-            QLog "[ERRO] netsh: $r"
-        }
+        $cfg = Get-NicConfig -Adapter $Adapter
+        if (-not $cfg) { QLog "[ERRO] Adaptador '$Adapter' nao encontrado."; return }
+        $r = Invoke-CimMethod -InputObject $cfg -MethodName SetDNSServerSearchOrder `
+             -Arguments @{ DNSServerSearchOrder = [string[]]$null }
+        if ($r.ReturnValue -eq 0) { QLog "[OK] DNS resetado para DHCP automatico." }
+        else { QLog "[AVISO] Concluido com codigo WMI: $($r.ReturnValue)" }
     } catch { QLog "[ERRO] $_" }
 }
 
