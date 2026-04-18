@@ -618,7 +618,6 @@ function Invoke-BackgroundTask {
 
     # Serializa todas as funcoes customizadas para o runspace
     $fnNames = @(
-        "QLog",
         "Install-Winget","Install-WingetApp","Install-Office",
         "Invoke-TweakHibernacao","Invoke-TweakSmartApp","Invoke-TweakDrivers",
         "Invoke-OtimizarPC","Invoke-Diagnostico","Invoke-SFCDISM",
@@ -645,6 +644,8 @@ function Invoke-BackgroundTask {
     $ps.Runspace = $rs
 
     [void]$ps.AddScript({
+        # QLog global: visivel em qualquer modulo/escopo do runspace
+        function global:QLog { param($m) if ($syncHash) { $syncHash.Queue.Enqueue($m) } }
         Invoke-Expression $fnDefs
         $script:OfficeXML = $rsOfficeXML
         try { & $task } catch { $syncHash.Queue.Enqueue("[ERRO] $_") }
