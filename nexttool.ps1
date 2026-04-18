@@ -947,41 +947,47 @@ function Invoke-SFCDISM {
 }
 
 function Update-SysInfo {
-    $os    = Get-CimInstance Win32_OperatingSystem
-    $cs    = Get-CimInstance Win32_ComputerSystem
-    $cpu   = (Get-CimInstance Win32_Processor | Select-Object -First 1).Name
-    $ramGB = [math]::Round($cs.TotalPhysicalMemory / 1GB, 1)
-    $freeGB= [math]::Round($os.FreePhysicalMemory / 1MB / 1024, 1)
-    $usedGB= [math]::Round($ramGB - $freeGB, 1)
-    $disks = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -gt 0 }
-    $diskSummary = ($disks | ForEach-Object {
-        "$($_.Name): $([math]::Round($_.Free/1GB,1))GB livre"
-    }) -join "  |  "
-    $diskDetail = ($disks | ForEach-Object {
-        $t = [math]::Round(($_.Used+$_.Free)/1GB,1)
-        $u = [math]::Round($_.Used/1GB,1)
-        $f = [math]::Round($_.Free/1GB,1)
-        "$($_.Name):  ${t}GB total  |  ${u}GB usado  |  ${f}GB livre"
-    }) -join "`n"
+    $bc = [System.Windows.Media.BrushConverter]::new()
+    $brushGreen  = $bc.ConvertFromString("#50D090")
+    $brushRed    = $bc.ConvertFromString("#C42B1C")
+    $brushBgGood = $bc.ConvertFromString("#1A2A1A")
+    $brushBgBad  = $bc.ConvertFromString("#2A1A1A")
 
-    # Cards rapidos
-    $cardPC.Text   = $env:COMPUTERNAME
-    $cardOS.Text   = "$($os.Caption) $($os.OSArchitecture)"
-    $cardCPU.Text  = $cpu -replace "\s{2,}"," "
-    $cardRAM.Text  = "RAM: ${ramGB}GB total  |  ${usedGB}GB usada  |  ${freeGB}GB livre"
-    $cardDisk.Text = $diskSummary
-    $cardUser.Text = "Usuário: $($env:USERNAME)"
+    try {
+        $os    = Get-CimInstance Win32_OperatingSystem
+        $cs    = Get-CimInstance Win32_ComputerSystem
+        $cpu   = (Get-CimInstance Win32_Processor | Select-Object -First 1).Name
+        $ramGB = [math]::Round($cs.TotalPhysicalMemory / 1GB, 1)
+        $freeGB= [math]::Round($os.FreePhysicalMemory / 1MB / 1024, 1)
+        $usedGB= [math]::Round($ramGB - $freeGB, 1)
+        $disks = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -gt 0 }
+        $diskSummary = ($disks | ForEach-Object { "$($_.Name): $([math]::Round($_.Free/1GB,1))GB livre" }) -join "  |  "
+        $diskDetail  = ($disks | ForEach-Object {
+            $t = [math]::Round(($_.Used+$_.Free)/1GB,1)
+            $u = [math]::Round($_.Used/1GB,1)
+            $f = [math]::Round($_.Free/1GB,1)
+            "$($_.Name):  ${t}GB total  |  ${u}GB usado  |  ${f}GB livre"
+        }) -join "`n"
 
-    # Seguranca
+        $cardPC.Text   = $env:COMPUTERNAME
+        $cardOS.Text   = "$($os.Caption) $($os.OSArchitecture)"
+        $cardCPU.Text  = ($cpu -replace "\s{2,}"," ")
+        $cardRAM.Text  = "RAM: ${ramGB}GB total  |  ${usedGB}GB usada  |  ${freeGB}GB livre"
+        $cardDisk.Text = $diskSummary
+        $cardUser.Text = "Usuário: $($env:USERNAME)"
+
+        $txtSysInfo.Text = "Computador  : $($env:COMPUTERNAME)`nUsuário     : $($env:USERNAME)`nDomínio     : $($cs.Domain)`nSO          : $($os.Caption) $($os.OSArchitecture)`nVersão SO   : $($os.Version)`nCPU         : $($cpu -replace '\s{2,}',' ')`nRAM         : ${ramGB}GB total  |  ${usedGB}GB usada  |  ${freeGB}GB livre`n$diskDetail`nData/Hora   : $([datetime]::Now.ToString('dd/MM/yyyy HH:mm'))"
+    } catch {}
+
     try {
         $def = Get-MpComputerStatus -ErrorAction Stop
         if ($def.AntivirusEnabled) {
-            $cardDefenderIcon.Foreground = "#50D090"
-            $cardDefender.Background    = "#1A2A1A"
+            $cardDefenderIcon.Foreground = $brushGreen
+            $cardDefender.Background    = $brushBgGood
             $cardDefenderTxt.Text = "Ativo  |  Def: $($def.AntivirusSignatureLastUpdated.ToString('dd/MM/yy'))"
         } else {
-            $cardDefenderIcon.Foreground = "#C42B1C"
-            $cardDefender.Background    = "#2A1A1A"
+            $cardDefenderIcon.Foreground = $brushRed
+            $cardDefender.Background    = $brushBgBad
             $cardDefenderTxt.Text = "INATIVO"
         }
     } catch { $cardDefenderTxt.Text = "Indisponível" }
@@ -989,28 +995,15 @@ function Update-SysInfo {
     try {
         $fw = Get-NetFirewallProfile -ErrorAction Stop | Where-Object { $_.Enabled } | Measure-Object
         if ($fw.Count -gt 0) {
-            $cardFWIcon.Foreground = "#50D090"
-            $cardFW.Background    = "#1A2A1A"
+            $cardFWIcon.Foreground = $brushGreen
+            $cardFW.Background    = $brushBgGood
             $cardFWTxt.Text = "$($fw.Count) perfil(is) ativo(s)"
         } else {
-            $cardFWIcon.Foreground = "#C42B1C"
-            $cardFW.Background    = "#2A1A1A"
+            $cardFWIcon.Foreground = $brushRed
+            $cardFW.Background    = $brushBgBad
             $cardFWTxt.Text = "INATIVO"
         }
     } catch { $cardFWTxt.Text = "Indisponível" }
-
-    # Detalhes
-    $txtSysInfo.Text = @"
-Computador  : $($env:COMPUTERNAME)
-Usuário     : $($env:USERNAME)
-Domínio     : $($cs.Domain)
-SO          : $($os.Caption) $($os.OSArchitecture)
-Versão SO   : $($os.Version)
-CPU         : $($cpu -replace "\s{2,}"," ")
-RAM         : ${ramGB}GB total  |  ${usedGB}GB usada  |  ${freeGB}GB livre
-$diskDetail
-Data/Hora   : $([datetime]::Now.ToString('dd/MM/yyyy HH:mm'))
-"@
 }
 
 # ================================================================
@@ -1126,19 +1119,16 @@ $btnInstall.Add_Click({
         return
     }
 
-    Invoke-BackgroundTask -Label "Instalacao de Softwares" `
-        -Vars @{ capturedList = [object[]]$toInstall; capturedOffice = $officeVer } `
-        -Task {
-            if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-                Install-Winget
-            }
-            foreach ($app in $capturedList) {
-                Install-WingetApp -Id $app.Id -Name $app.Name
-            }
-            if ($capturedOffice) {
-                Install-Office -Version $capturedOffice
-            }
-        }
+    $global:syncHash.installList   = @($toInstall)
+    $global:syncHash.installOffice = $officeVer
+
+    Invoke-BackgroundTask -Label "Instalacao de Softwares" -Task {
+        $list   = $syncHash.installList
+        $office = $syncHash.installOffice
+        if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { Install-Winget }
+        foreach ($app in $list) { Install-WingetApp -Id $app.Id -Name $app.Name }
+        if ($office) { Install-Office -Version $office }
+    }
 })
 
 # --- Tweaks ---
@@ -1152,13 +1142,15 @@ $btnTweaks.Add_Click({
         return
     }
 
-    Invoke-BackgroundTask -Label "Aplicar Tweaks" `
-        -Vars @{ doHib = $doHib; doSmart = $doSmart; doDrivers = $doDrivers } `
-        -Task {
-            if ($doHib)     { Invoke-TweakHibernacao }
-            if ($doSmart)   { Invoke-TweakSmartApp }
-            if ($doDrivers) { Invoke-TweakDrivers }
-        }
+    $global:syncHash.tweakHib     = [bool]$doHib
+    $global:syncHash.tweakSmart   = [bool]$doSmart
+    $global:syncHash.tweakDrivers = [bool]$doDrivers
+
+    Invoke-BackgroundTask -Label "Aplicar Tweaks" -Task {
+        if ($syncHash.tweakHib)     { Invoke-TweakHibernacao }
+        if ($syncHash.tweakSmart)   { Invoke-TweakSmartApp }
+        if ($syncHash.tweakDrivers) { Invoke-TweakDrivers }
+    }
 })
 
 # --- Manutencao ---
@@ -1192,14 +1184,17 @@ $btnSysInfo.Add_Click({
 
 # --- Rede / DNS ---
 $btnSetDNS.Add_Click({
-    $a = $txtAdapter.Text.Trim(); $d1 = $txtDNS1.Text.Trim(); $d2 = $txtDNS2.Text.Trim()
-    Invoke-BackgroundTask -Label "Configurar DNS" -Vars @{a=$a;d1=$d1;d2=$d2} `
-        -Task { Invoke-SetDNS -Adapter $a -DNS1 $d1 -DNS2 $d2 }
+    $global:syncHash.dnsAdapter = $txtAdapter.Text.Trim()
+    $global:syncHash.dns1 = $txtDNS1.Text.Trim()
+    $global:syncHash.dns2 = $txtDNS2.Text.Trim()
+    Invoke-BackgroundTask -Label "Configurar DNS" -Task {
+        Invoke-SetDNS -Adapter $syncHash.dnsAdapter -DNS1 $syncHash.dns1 -DNS2 $syncHash.dns2
+    }
 })
 
 $btnResetDNS.Add_Click({
-    $a = $txtAdapter.Text.Trim()
-    Invoke-BackgroundTask -Label "Resetar DNS" -Vars @{a=$a} -Task { Invoke-ResetDNS -Adapter $a }
+    $global:syncHash.dnsAdapter = $txtAdapter.Text.Trim()
+    Invoke-BackgroundTask -Label "Resetar DNS" -Task { Invoke-ResetDNS -Adapter $syncHash.dnsAdapter }
 })
 
 $btnPing.Add_Click({
@@ -1229,9 +1224,14 @@ $btnJoinDomain.Add_Click({
         [System.Windows.MessageBoxImage]::Question)
 
     if ($result -eq "Yes") {
-        Invoke-BackgroundTask -Label "Ingresso no Dominio" `
-            -Vars @{dom=$dom;user=$user;pass=$pass;name=$name} `
-            -Task { Invoke-JoinDomain -Domain $dom -User $user -Pass $pass -NewName $name }
+        $global:syncHash.adDomain = $dom
+        $global:syncHash.adUser   = $user
+        $global:syncHash.adPass   = $pass
+        $global:syncHash.adName   = $name
+        Invoke-BackgroundTask -Label "Ingresso no Dominio" -Task {
+            Invoke-JoinDomain -Domain $syncHash.adDomain -User $syncHash.adUser `
+                              -Pass $syncHash.adPass -NewName $syncHash.adName
+        }
     }
 })
 
