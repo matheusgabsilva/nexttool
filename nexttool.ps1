@@ -478,6 +478,54 @@ Add-Type -AssemblyName System.Windows.Forms
         </ScrollViewer>
       </TabItem>
 
+      <!-- ======================================================
+           ABA 5: ESPACO EM DISCO
+      ====================================================== -->
+      <TabItem Header="  Espaço em Disco  ">
+        <Grid Background="#1A1A2E">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+
+          <!-- Controles de scan -->
+          <StackPanel Grid.Row="0" Margin="22,16,22,8">
+            <TextBlock Text="Análise de Espaço em Disco" FontSize="15" FontWeight="Bold"
+                       Foreground="#0078D4" Margin="0,0,0,12"/>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <Label Content="Caminho:" Margin="0,0,6,0"/>
+              <TextBox x:Name="txtScanPath" Style="{StaticResource InputBox}"
+                       Text="C:\" Width="220" Margin="0,0,10,0"/>
+              <Button x:Name="btnScan" Content="🔍  Escanear" Style="{StaticResource BtnPrimary}" Margin="0,0,10,0"/>
+              <Button x:Name="btnScanClear" Content="Limpar" Style="{StaticResource BtnSecondary}"/>
+            </StackPanel>
+            <TextBlock Text="Exibe pastas de primeiro nível com tamanho recursivo + maiores arquivos individuais (acima de 50 MB)."
+                       Foreground="#606080" FontSize="11" Margin="0,8,0,0"/>
+          </StackPanel>
+
+          <!-- Resultados -->
+          <Grid Grid.Row="1" Margin="22,4,22,12">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="10"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <GroupBox Grid.Column="0" Header="Pastas mais pesadas">
+              <ListBox x:Name="lstFolders" Background="#0F0F1E" Foreground="#C0C0E0"
+                       BorderThickness="0" FontFamily="Consolas" FontSize="11"
+                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+            </GroupBox>
+
+            <GroupBox Grid.Column="2" Header="Maiores arquivos  (acima de 50 MB)">
+              <ListBox x:Name="lstFiles" Background="#0F0F1E" Foreground="#C0C0E0"
+                       BorderThickness="0" FontFamily="Consolas" FontSize="11"
+                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+            </GroupBox>
+          </Grid>
+        </Grid>
+      </TabItem>
+
     </TabControl>
 
     <!-- LOG PANEL -->
@@ -571,6 +619,15 @@ $txtNewName     = Get-Control "txtNewName"
 $btnJoinDomain  = Get-Control "btnJoinDomain"
 $btnClearLog    = Get-Control "btnClearLog"
 
+# Espaco em Disco
+$txtScanPath    = Get-Control "txtScanPath"
+$btnScan        = Get-Control "btnScan"
+$btnScanClear   = Get-Control "btnScanClear"
+$lstFolders     = Get-Control "lstFolders"
+$lstFiles       = Get-Control "lstFiles"
+$global:syncHash.LstFolders = $lstFolders
+$global:syncHash.LstFiles   = $lstFiles
+
 # ================================================================
 # SISTEMA DE LOG + RUNSPACE
 # ================================================================
@@ -603,8 +660,10 @@ function Invoke-BackgroundTask {
     param(
         [scriptblock]$Task,
         [string]$Label = "Tarefa",
-        [hashtable]$Vars = @{}
+        [hashtable]$Vars = @{},
+        [scriptblock]$OnDone = $null
     )
+    $global:syncHash.OnDoneCallback = $OnDone
 
     if ($global:syncHash.Running) {
         Write-GuiLog "Aguarde a operacao atual terminar..." "Orange"
@@ -618,6 +677,7 @@ function Invoke-BackgroundTask {
 
     # Serializa todas as funcoes customizadas para o runspace
     $fnNames = @(
+        "Format-Size","Invoke-EspacoDisco",
         "Install-Winget","Install-WingetApp","Install-Office",
         "Invoke-TweakHibernacao","Invoke-TweakSmartApp","Invoke-TweakDrivers",
         "Invoke-OtimizarPC","Invoke-Diagnostico","Invoke-SFCDISM",
@@ -672,6 +732,10 @@ function Invoke-BackgroundTask {
                 $global:syncHash.Log.Text  += "$entry`n"
                 $global:syncHash.Scroll.ScrollToBottom()
                 try { $global:syncHash.ActivePS.Dispose(); $global:syncHash.ActiveRS.Dispose() } catch {}
+                if ($global:syncHash.OnDoneCallback) {
+                    try { & $global:syncHash.OnDoneCallback } catch {}
+                    $global:syncHash.OnDoneCallback = $null
+                }
                 return
             }
             $display = $msg -replace "^\[\w+\]\s*",""
@@ -1015,6 +1079,48 @@ function Update-SysInfo {
 }
 
 # ================================================================
+# ESPACO EM DISCO
+# ================================================================
+function Format-Size {
+    param([long]$bytes)
+    if ($bytes -ge 1GB) { return "$([math]::Round($bytes/1GB,2).ToString('0.00')) GB" }
+    if ($bytes -ge 1MB) { return "$([math]::Round($bytes/1MB,1).ToString('0.0')) MB " }
+    if ($bytes -ge 1KB) { return "$([math]::Round($bytes/1KB,0)) KB " }
+    return "$bytes B  "
+}
+
+function Invoke-EspacoDisco {
+    $path = $syncHash.ScanPath
+    QLog "[INFO] Calculando tamanho das pastas em $path ..."
+
+    $dirs = Get-ChildItem $path -Directory -ErrorAction SilentlyContinue
+    $folderData = [System.Collections.Generic.List[object]]::new()
+    $idx = 0
+    foreach ($d in $dirs) {
+        $idx++
+        QLog "[INFO] [$idx/$($dirs.Count)] $($d.Name)"
+        try {
+            $sz = (Get-ChildItem $d.FullName -Recurse -Force -ErrorAction SilentlyContinue |
+                   Measure-Object Length -Sum -ErrorAction SilentlyContinue).Sum
+            if (-not $sz) { $sz = 0 }
+            $folderData.Add([pscustomobject]@{ Bytes=$sz; Linha="$(Format-Size $sz)  $($d.FullName)" })
+        } catch {}
+    }
+    $syncHash.ScanFolderList = @(
+        $folderData | Sort-Object Bytes -Descending | Select-Object -First 25 | ForEach-Object { $_.Linha }
+    )
+
+    QLog "[INFO] Buscando arquivos acima de 50 MB..."
+    $syncHash.ScanFileList = @(
+        Get-ChildItem $path -Recurse -Force -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Length -ge 50MB } |
+            Sort-Object Length -Descending | Select-Object -First 30 |
+            ForEach-Object { "$(Format-Size $_.Length)  $($_.FullName)" }
+    )
+    QLog "[OK] Scan concluido."
+}
+
+# ================================================================
 # REDE / DOMINIO
 # ================================================================
 function Get-NicConfig {
@@ -1247,6 +1353,27 @@ $btnJoinDomain.Add_Click({
                               -Pass $syncHash.adPass -NewName $syncHash.adName
         }
     }
+})
+
+# --- Espaco em Disco ---
+$btnScan.Add_Click({
+    $global:syncHash.ScanPath = $txtScanPath.Text.Trim()
+    if (-not (Test-Path $global:syncHash.ScanPath)) {
+        Write-GuiLog "Caminho nao encontrado: $($global:syncHash.ScanPath)" "Orange"
+        return
+    }
+    $lstFolders.ItemsSource = $null
+    $lstFiles.ItemsSource   = $null
+
+    Invoke-BackgroundTask -Label "Scan de Disco: $($global:syncHash.ScanPath)" -Task { Invoke-EspacoDisco } -OnDone {
+        $global:syncHash.LstFolders.ItemsSource = $global:syncHash.ScanFolderList
+        $global:syncHash.LstFiles.ItemsSource   = $global:syncHash.ScanFileList
+    }
+})
+
+$btnScanClear.Add_Click({
+    $lstFolders.ItemsSource = $null
+    $lstFiles.ItemsSource   = $null
 })
 
 # ================================================================
