@@ -860,8 +860,10 @@ function Invoke-OtimizarPC {
         $p = "$regPath\$_"
         if (Test-Path $p) { Set-ItemProperty -Path $p -Name StateFlags0064 -Value 2 -ErrorAction SilentlyContinue }
     }
-    Start-Process cleanmgr -ArgumentList "/sagerun:64" -Wait -WindowStyle Hidden
-    QLog "[OK] Limpeza de disco concluida."
+    $cg = Start-Process cleanmgr -ArgumentList "/sagerun:64" -PassThru -WindowStyle Hidden
+    $done = $cg.WaitForExit(60000)
+    if (-not $done) { try { $cg.Kill() } catch {} ; QLog "[INFO] Limpeza de disco encerrada (timeout 60s)." }
+    else { QLog "[OK] Limpeza de disco concluida." }
 
     QLog "[INFO] Limpando cache DNS..."
     ipconfig /flushdns | Out-Null
