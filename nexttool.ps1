@@ -486,15 +486,15 @@ function Invoke-TestarConectividade {
     Write-Log "Testando conectividade..." "STEP"
     foreach ($target in @("8.8.8.8","1.1.1.1","google.com")) {
         try {
-            $ping  = New-Object System.Net.NetworkInformation.Ping
-            $reply = $ping.Send($target, 2000)
-            if ($reply.Status -eq [System.Net.NetworkInformation.IPStatus]::Success) {
-                Write-Log "Ping ${target}: $($reply.RoundtripTime)ms" "OK"
+            $out = & ping.exe -n 1 -w 2000 $target 2>&1 | Out-String
+            if ($out -match "tempo[<=]\s*(\d+)\s*ms|time[<=]\s*(\d+)\s*ms") {
+                $ms = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
+                Write-Log "Ping ${target}: ${ms}ms" "OK"
             } else {
-                Write-Log "Ping ${target}: $($reply.Status)" "ERRO"
+                Write-Log "Ping ${target}: sem resposta" "ERRO"
             }
         } catch {
-            Write-Log "Ping ${target}: sem resposta" "ERRO"
+            Write-Log "Ping ${target}: erro — $_" "ERRO"
         }
     }
 }
