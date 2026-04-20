@@ -15,7 +15,12 @@ try { chcp 65001 | Out-Null } catch {}
 
 # === ELEVACAO ===
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -Command `"irm 'https://raw.githubusercontent.com/matheusgabsilva/nexttool/main/nexttool.ps1' | iex`"" -Verb RunAs
+    $scriptPath = $MyInvocation.MyCommand.Path
+    if ($scriptPath) {
+        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs
+    } else {
+        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -Command `"irm 'https://raw.githubusercontent.com/matheusgabsilva/nexttool/main/nexttool.ps1' | iex`"" -Verb RunAs
+    }
     exit
 }
 
@@ -483,8 +488,11 @@ function Invoke-ResetDNS {
 }
 
 function Invoke-TestarConectividade {
-    Write-Log "Testando conectividade..." "STEP"
-    foreach ($target in @("8.8.8.8","1.1.1.1","google.com")) {
+    Write-Log "=== TESTE DE CONECTIVIDADE ===" "STEP"
+
+    # --- Ping ---
+    Write-Log "-- Ping --" "INFO"
+    foreach ($target in @("8.8.8.8","1.1.1.1","google.com","microsoft.com")) {
         try {
             $out = & ping.exe -n 1 -w 2000 $target 2>&1 | Out-String
             if ($out -match "[<=](\d+)\s*ms") {
@@ -496,6 +504,30 @@ function Invoke-TestarConectividade {
             Write-Log "Ping ${target}: erro — $_" "ERRO"
         }
     }
+
+    # --- Resolucao DNS ---
+    Write-Log "-- Resolucao DNS --" "INFO"
+    foreach ($domain in @("google.com","microsoft.com")) {
+        try {
+            $ip = [System.Net.Dns]::GetHostAddresses($domain) | Select-Object -First 1
+            Write-Log "DNS ${domain}: $($ip.IPAddressToString)" "OK"
+        } catch {
+            Write-Log "DNS ${domain}: falha na resolucao" "ERRO"
+        }
+    }
+
+    # --- Tracert (primeiros 10 saltos para 8.8.8.8) ---
+    Write-Log "-- Tracert (ate 10 saltos -> 8.8.8.8) --" "INFO"
+    try {
+        $tr = & tracert.exe -h 10 -w 1000 8.8.8.8 2>&1
+        $tr | Where-Object { $_ -match "^\s*\d+" } | ForEach-Object {
+            Write-Log $_.Trim() "PLAIN"
+        }
+    } catch {
+        Write-Log "Tracert: erro — $_" "ERRO"
+    }
+
+    Write-Log "Teste de conectividade concluido." "OK"
 }
 
 function Show-IPConfig {
