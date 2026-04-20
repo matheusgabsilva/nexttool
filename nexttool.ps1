@@ -519,6 +519,45 @@ function Invoke-JoinDomain {
 }
 
 # ================================================================
+# IMPORT / EXPORT DE CONFIGURACAO
+# ================================================================
+function Export-Config {
+    param([hashtable]$State)
+    $dlg = New-Object Microsoft.Win32.SaveFileDialog
+    $dlg.Title      = "Exportar configuracao NextTool"
+    $dlg.Filter     = "JSON (*.json)|*.json"
+    $dlg.FileName   = "nexttool_perfil_$($env:COMPUTERNAME).json"
+    $dlg.InitialDirectory = [Environment]::GetFolderPath("Desktop")
+    if ($dlg.ShowDialog() -ne $true) { return }
+
+    $obj = [ordered]@{
+        version    = $script:VERSION
+        exportedAt = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+        tweaks     = $State.Tweaks
+        apps       = $State.Apps
+    }
+    $obj | ConvertTo-Json -Depth 5 | Out-File -FilePath $dlg.FileName -Encoding UTF8
+    Write-Log "Configuracao exportada: $($dlg.FileName)" "OK"
+}
+
+function Import-Config {
+    $dlg = New-Object Microsoft.Win32.OpenFileDialog
+    $dlg.Title            = "Importar configuracao NextTool"
+    $dlg.Filter           = "JSON (*.json)|*.json"
+    $dlg.InitialDirectory = [Environment]::GetFolderPath("Desktop")
+    if ($dlg.ShowDialog() -ne $true) { return $null }
+
+    try {
+        $json = Get-Content $dlg.FileName -Raw -Encoding UTF8 | ConvertFrom-Json
+        Write-Log "Configuracao importada: $($dlg.FileName)" "OK"
+        return $json
+    } catch {
+        Write-Log "Falha ao importar: $_" "ERRO"
+        return $null
+    }
+}
+
+# ================================================================
 # ASYNC HELPER  — copia funcoes para o runspace e executa em background
 # ================================================================
 $script:FuncNames = @(
@@ -708,8 +747,13 @@ function Invoke-Async {
           <TextBlock Text="  v3.0" FontSize="11" Foreground="#5C6370" VerticalAlignment="Bottom" Margin="2,0,0,4"/>
           <TextBlock Text="  |  Ferramenta de TI" FontSize="11" Foreground="#5C6370" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
         </StackPanel>
-        <TextBlock Grid.Column="1" x:Name="TxtSysInfo"
-                   Foreground="#5C6370" FontSize="11" VerticalAlignment="Center"/>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+          <Button x:Name="BtnImport" Content="Importar" Padding="10,4" Margin="0,0,6,0"
+                  Background="#4B5263" Foreground="#ABB2BF" FontSize="11" FontWeight="Normal"/>
+          <Button x:Name="BtnExport" Content="Exportar" Padding="10,4" Margin="0,0,16,0"
+                  Background="#4B5263" Foreground="#ABB2BF" FontSize="11" FontWeight="Normal"/>
+          <TextBlock x:Name="TxtSysInfo" Foreground="#5C6370" FontSize="11" VerticalAlignment="Center"/>
+        </StackPanel>
       </Grid>
     </Border>
 
@@ -967,6 +1011,8 @@ $BtnInstalarSelecionados = $Window.FindName("BtnInstalarSelecionados")
 $BtnO365                 = $Window.FindName("BtnO365")
 $BtnO2021                = $Window.FindName("BtnO2021")
 $BtnO2016                = $Window.FindName("BtnO2016")
+$BtnImport               = $Window.FindName("BtnImport")
+$BtnExport               = $Window.FindName("BtnExport")
 $BtnPresetNext           = $Window.FindName("BtnPresetNext")
 $BtnPresetLimpar         = $Window.FindName("BtnPresetLimpar")
 $ChkTelemetria           = $Window.FindName("ChkTelemetria")
@@ -1168,6 +1214,68 @@ $BtnJoinDomain.Add_Click({
     Invoke-Async {
         Invoke-JoinDomain -Domain $Dom -User $Usr -Pass $Pass -NewName $Name
     } -Vars @{ Dom = $dom; Usr = $usr; Pass = $pass; Name = $name }
+})
+
+# --- Import / Export ---
+$BtnExport.Add_Click({
+    $tweaks = [ordered]@{
+        Telemetria       = [bool]$ChkTelemetria.IsChecked
+        ActivityHistory  = [bool]$ChkActivityHistory.IsChecked
+        LocationTracking = [bool]$ChkLocationTracking.IsChecked
+        FileExtensions   = [bool]$ChkFileExtensions.IsChecked
+        HiddenFiles      = [bool]$ChkHiddenFiles.IsChecked
+        NumLock          = [bool]$ChkNumLock.IsChecked
+        EndTask          = [bool]$ChkEndTask.IsChecked
+        Services         = [bool]$ChkServices.IsChecked
+        Hibernacao       = [bool]$ChkHibernacao.IsChecked
+        SmartApp         = [bool]$ChkSmartApp.IsChecked
+        UltimatePerf     = [bool]$ChkUltimatePerf.IsChecked
+        DarkTheme        = [bool]$ChkDarkTheme.IsChecked
+        Widgets          = [bool]$ChkWidgets.IsChecked
+        VerboseLogon     = [bool]$ChkVerboseLogon.IsChecked
+    }
+    $apps = [ordered]@{
+        Chrome    = [bool]$ChkChrome.IsChecked
+        Winrar    = [bool]$ChkWinrar.IsChecked
+        Adobe     = [bool]$ChkAdobe.IsChecked
+        Anydesk   = [bool]$ChkAnydesk.IsChecked
+        Teamview  = [bool]$ChkTeamview.IsChecked
+    }
+    Export-Config -State @{ Tweaks = $tweaks; Apps = $apps }
+})
+
+$BtnImport.Add_Click({
+    $cfg = Import-Config
+    if (-not $cfg) { return }
+
+    # Aplicar tweaks
+    if ($cfg.tweaks) {
+        $ChkTelemetria.IsChecked       = [bool]$cfg.tweaks.Telemetria
+        $ChkActivityHistory.IsChecked  = [bool]$cfg.tweaks.ActivityHistory
+        $ChkLocationTracking.IsChecked = [bool]$cfg.tweaks.LocationTracking
+        $ChkFileExtensions.IsChecked   = [bool]$cfg.tweaks.FileExtensions
+        $ChkHiddenFiles.IsChecked      = [bool]$cfg.tweaks.HiddenFiles
+        $ChkNumLock.IsChecked          = [bool]$cfg.tweaks.NumLock
+        $ChkEndTask.IsChecked          = [bool]$cfg.tweaks.EndTask
+        $ChkServices.IsChecked         = [bool]$cfg.tweaks.Services
+        $ChkHibernacao.IsChecked       = [bool]$cfg.tweaks.Hibernacao
+        $ChkSmartApp.IsChecked         = [bool]$cfg.tweaks.SmartApp
+        $ChkUltimatePerf.IsChecked     = [bool]$cfg.tweaks.UltimatePerf
+        $ChkDarkTheme.IsChecked        = [bool]$cfg.tweaks.DarkTheme
+        $ChkWidgets.IsChecked          = [bool]$cfg.tweaks.Widgets
+        $ChkVerboseLogon.IsChecked     = [bool]$cfg.tweaks.VerboseLogon
+    }
+
+    # Aplicar apps
+    if ($cfg.apps) {
+        $ChkChrome.IsChecked   = [bool]$cfg.apps.Chrome
+        $ChkWinrar.IsChecked   = [bool]$cfg.apps.Winrar
+        $ChkAdobe.IsChecked    = [bool]$cfg.apps.Adobe
+        $ChkAnydesk.IsChecked  = [bool]$cfg.apps.Anydesk
+        $ChkTeamview.IsChecked = [bool]$cfg.apps.Teamview
+    }
+
+    Write-Log "Perfil aplicado — revise as selecoes e clique em Aplicar." "AVISO"
 })
 
 # --- Log ---
