@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 # ================================================================
-# NextTool v2.0 - Ferramenta de TI da Next (CLI)
+# NextTool v3.0 - Ferramenta de TI da Next (GUI)
 # github.com/matheusgabsilva/nexttool
 #
 # Uso via URL:
@@ -19,20 +19,26 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     exit
 }
 
+Add-Type -AssemblyName PresentationFramework
+Add-Type -AssemblyName PresentationCore
+Add-Type -AssemblyName WindowsBase
+Add-Type -AssemblyName System.Windows.Forms
+
 # ================================================================
 # CONFIGURACAO GLOBAL
 # ================================================================
-$script:VERSION     = "2.0"
-$script:REPORT_DIR  = "C:\Next-Relatorios"
-$script:SESSION_TS  = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$script:LOG_FILE    = Join-Path $script:REPORT_DIR "nexttool_$($env:COMPUTERNAME)_$script:SESSION_TS.log"
+$script:VERSION    = "3.0"
+$script:REPORT_DIR = "C:\Next-Relatorios"
+$script:SESSION_TS = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$script:LOG_FILE   = Join-Path $script:REPORT_DIR "nexttool_$($env:COMPUTERNAME)_$script:SESSION_TS.log"
+$script:LogQueue   = [System.Collections.Concurrent.ConcurrentQueue[object]]::new()
 
 if (-not (Test-Path $script:REPORT_DIR)) {
     New-Item -Path $script:REPORT_DIR -ItemType Directory -Force | Out-Null
 }
 
 # ================================================================
-# LOGGING COLORIDO
+# WRITE-LOG  (funciona em runspaces — usa $LogQueue/$LOG_FILE sem $script:)
 # ================================================================
 function Write-Log {
     param(
@@ -42,105 +48,18 @@ function Write-Log {
     )
     $ts = [datetime]::Now.ToString("HH:mm:ss")
     switch ($Level) {
-        "OK"    { $tag = "[OK]   "; $color = "Green"       }
-        "ERRO"  { $tag = "[ERRO] "; $color = "Red"         }
-        "AVISO" { $tag = "[AVISO]"; $color = "Yellow"      }
-        "STEP"  { $tag = "[>>]   "; $color = "Cyan"        }
-        "PLAIN" { $tag = "       "; $color = "Gray"        }
-        default { $tag = "[INFO] "; $color = "White"       }
+        "OK"    { $tag = "[OK]   "; $hex = "#98C379" }
+        "ERRO"  { $tag = "[ERRO] "; $hex = "#E06C75" }
+        "AVISO" { $tag = "[AVISO]"; $hex = "#E5C07B" }
+        "STEP"  { $tag = "[>>]   "; $hex = "#61AFEF" }
+        "PLAIN" { $tag = "       "; $hex = "#5C6370" }
+        default { $tag = "[INFO] "; $hex = "#ABB2BF" }
     }
     $line = "$ts $tag $Message"
-    Write-Host $line -ForegroundColor $color
-    try { Add-Content -Path $script:LOG_FILE -Value $line -Encoding UTF8 } catch {}
-}
-
-function Write-Header {
-    param([string]$Title)
-    $w = 66
-    $pad = [Math]::Max(0, ($w - $Title.Length - 2) / 2)
-    $l = " " * [Math]::Floor($pad)
-    $r = " " * [Math]::Ceiling($pad)
-    Write-Host ""
-    Write-Host ("=" * $w) -ForegroundColor DarkCyan
-    Write-Host "$l$Title$r" -ForegroundColor Cyan
-    Write-Host ("=" * $w) -ForegroundColor DarkCyan
-}
-
-function Write-Sep { Write-Host ("-" * 66) -ForegroundColor DarkGray }
-
-function Pause-Enter {
-    Write-Host ""
-    Write-Host "Pressione ENTER para continuar..." -ForegroundColor DarkGray -NoNewline
-    [void][Console]::ReadLine()
-}
-
-function Read-Option {
-    param([string]$Prompt = "Opcao")
-    Write-Host ""
-    Write-Host "$Prompt > " -ForegroundColor Yellow -NoNewline
-    return ([Console]::ReadLine()).Trim()
-}
-
-function Read-Input {
-    param([string]$Prompt, [string]$Default = "")
-    $suffix = if ($Default) { " [$Default]" } else { "" }
-    Write-Host "$Prompt$suffix" -ForegroundColor White -NoNewline
-    Write-Host " > " -ForegroundColor Yellow -NoNewline
-    $v = ([Console]::ReadLine()).Trim()
-    if (-not $v -and $Default) { return $Default }
-    return $v
-}
-
-function Confirm-Yes {
-    param([string]$Prompt)
-    Write-Host "$Prompt (s/N) > " -ForegroundColor Yellow -NoNewline
-    $r = ([Console]::ReadLine()).Trim().ToLower()
-    return ($r -eq "s" -or $r -eq "sim" -or $r -eq "y" -or $r -eq "yes")
-}
-
-# ================================================================
-# SYS INFO HEADER
-# ================================================================
-function Show-SysInfo {
-    try {
-        $os   = Get-CimInstance Win32_OperatingSystem
-        $cs   = Get-CimInstance Win32_ComputerSystem
-        $cpu  = (Get-CimInstance Win32_Processor | Select-Object -First 1).Name -replace "\s{2,}"," "
-        $ramGB  = [math]::Round($cs.TotalPhysicalMemory / 1GB, 1)
-        $freeGB = [math]::Round($os.FreePhysicalMemory / 1MB / 1024, 1)
-        $usedGB = [math]::Round($ramGB - $freeGB, 1)
-
-        Write-Host ""
-        Write-Host "  PC      : " -NoNewline -ForegroundColor DarkGray; Write-Host $env:COMPUTERNAME -ForegroundColor White
-        Write-Host "  Usuario : " -NoNewline -ForegroundColor DarkGray; Write-Host "$env:USERNAME  |  Dominio: $($cs.Domain)" -ForegroundColor White
-        Write-Host "  SO      : " -NoNewline -ForegroundColor DarkGray; Write-Host "$($os.Caption) $($os.OSArchitecture)" -ForegroundColor White
-        Write-Host "  CPU     : " -NoNewline -ForegroundColor DarkGray; Write-Host $cpu -ForegroundColor White
-        Write-Host "  RAM     : " -NoNewline -ForegroundColor DarkGray; Write-Host "${ramGB}GB total | ${usedGB}GB usada | ${freeGB}GB livre" -ForegroundColor White
-
-        Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -gt 0 } | ForEach-Object {
-            $t = [math]::Round(($_.Used + $_.Free) / 1GB, 1)
-            $f = [math]::Round($_.Free / 1GB, 1)
-            Write-Host "  Disco $($_.Name)  : " -NoNewline -ForegroundColor DarkGray
-            Write-Host "${t}GB total | ${f}GB livre" -ForegroundColor White
-        }
-
-        try {
-            $def = Get-MpComputerStatus -ErrorAction Stop
-            $st  = if ($def.AntivirusEnabled) { "ATIVO" } else { "INATIVO" }
-            $cl  = if ($def.AntivirusEnabled) { "Green" } else { "Red" }
-            Write-Host "  Defender: " -NoNewline -ForegroundColor DarkGray
-            Write-Host $st -ForegroundColor $cl
-        } catch {}
-        try {
-            $fwOut = netsh advfirewall show allprofiles state 2>&1 | Out-String
-            $onCount = ([regex]::Matches($fwOut, "(?i)State\s+ON")).Count
-            $cl = if ($onCount -gt 0) { "Green" } else { "Red" }
-            Write-Host "  Firewall: " -NoNewline -ForegroundColor DarkGray
-            Write-Host "$onCount perfil(is) ativo(s)" -ForegroundColor $cl
-        } catch {}
-    } catch {
-        Write-Log "Falha ao coletar info do sistema: $_" "AVISO"
+    if ($null -ne $LogQueue) {
+        $LogQueue.Enqueue([PSCustomObject]@{ Text = $line; Color = $hex })
     }
+    try { Add-Content -Path $LOG_FILE -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
 }
 
 # ================================================================
@@ -162,10 +81,10 @@ function Install-Winget {
 
 function Install-WingetApp {
     param([string]$Id, [string]$Name)
-    Write-Log "Instalando $Name ($Id)..." "STEP"
+    Write-Log "Instalando $Name..." "STEP"
     $result = winget install --id $Id -e --accept-source-agreements --accept-package-agreements --silent 2>&1
     if ($LASTEXITCODE -eq 0 -or $result -match "instalado|already installed|No applicable") {
-        Write-Log "$Name instalado." "OK"
+        Write-Log "$Name instalado com sucesso." "OK"
     } else {
         Write-Log "Falha ao instalar $Name (codigo: $LASTEXITCODE)." "ERRO"
     }
@@ -213,11 +132,10 @@ $script:OfficeXML = @{
 
 function Install-Office {
     param([string]$Version)
-    Write-Log "Preparando instalacao do Office $Version via ODT..." "STEP"
+    Write-Log "Preparando Office $Version via ODT..." "STEP"
     $odtDir = "$env:TEMP\NextODT"
     New-Item -Path $odtDir -ItemType Directory -Force | Out-Null
     $odtExe = "$odtDir\setup.exe"
-
     Write-Log "Baixando Office Deployment Tool..." "INFO"
     try {
         Invoke-WebRequest -Uri "https://download.microsoft.com/download/2/7/A/27AF1BE6-DD20-4CB4-B154-EBAB8A7D4A7E/officedeploymenttool_17928-20114.exe" `
@@ -228,12 +146,22 @@ function Install-Office {
         Write-Log "Falha ao baixar/extrair ODT: $_" "ERRO"
         return
     }
-
     $xmlPath = "$odtDir\config_$Version.xml"
-    $script:OfficeXML[$Version] | Out-File -FilePath $xmlPath -Encoding UTF8
-    Write-Log "Iniciando instalacao Office $Version (pode demorar varios minutos)..." "STEP"
+    $OfficeXML[$Version] | Out-File -FilePath $xmlPath -Encoding UTF8
+    Write-Log "Iniciando Office $Version (pode demorar varios minutos)..." "STEP"
     Start-Process $odtExe -ArgumentList "/configure `"$xmlPath`"" -Wait
-    Write-Log "Instalacao do Office $Version concluida." "OK"
+    Write-Log "Office $Version instalado." "OK"
+}
+
+function Install-PadraoNext {
+    Write-Log "=== INSTALACAO PADRAO NEXT ===" "STEP"
+    if (-not (Test-Winget)) { Install-Winget }
+    Install-WingetApp "Google.Chrome"               "Google Chrome"
+    Install-WingetApp "RARLab.WinRAR"               "WinRAR"
+    Install-WingetApp "Adobe.Acrobat.Reader.64-bit" "Adobe Acrobat Reader"
+    Install-WingetApp "AnyDesk.AnyDesk"             "AnyDesk"
+    Install-WingetApp "TeamViewer.TeamViewer"        "TeamViewer"
+    Write-Log "Padrao Next concluido. Instale o Office separadamente." "OK"
 }
 
 # ================================================================
@@ -252,12 +180,12 @@ function Invoke-TweakSmartApp {
         Set-ItemProperty -Path $path -Name "VerifiedAndReputablePolicyState" -Value 0 -Type DWord -Force
         Write-Log "Smart App Control desativado. Reinicie para aplicar." "OK"
     } catch {
-        Write-Log "Nao foi possivel desativar (pode nao existir neste Windows): $_" "AVISO"
+        Write-Log "Nao foi possivel desativar: $_" "AVISO"
     }
 }
 
 function Invoke-TweakDrivers {
-    Write-Log "Verificando modulo PSWindowsUpdate..." "STEP"
+    Write-Log "Verificando PSWindowsUpdate..." "STEP"
     if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
         Write-Log "Instalando PSWindowsUpdate..." "INFO"
         try {
@@ -273,7 +201,7 @@ function Invoke-TweakDrivers {
     try {
         $updates = Get-WindowsUpdate -Category Drivers -ErrorAction Stop
         if ($updates.Count -eq 0) {
-            Write-Log "Nenhuma atualizacao de driver disponivel. Drivers em dia." "OK"
+            Write-Log "Drivers em dia." "OK"
         } else {
             Write-Log "$($updates.Count) driver(s) encontrado(s). Instalando..." "INFO"
             $updates | ForEach-Object { Write-Log " - $($_.Title)" "PLAIN" }
@@ -290,6 +218,7 @@ function Invoke-TweakDrivers {
 # MANUTENCAO
 # ================================================================
 function Invoke-OtimizarPC {
+    Write-Log "=== OTIMIZACAO DO PC ===" "STEP"
     Write-Log "Limpando arquivos temporarios..." "STEP"
     $paths = @($env:TEMP, "C:\Windows\Temp", "C:\Windows\Prefetch")
     $total = 0
@@ -322,29 +251,17 @@ function Invoke-OtimizarPC {
     Write-Log "Limpando cache DNS..." "STEP"
     ipconfig /flushdns | Out-Null
     Write-Log "Cache DNS limpo." "OK"
-
-    $totalRam = (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1MB
-    $freeRam  = (Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1KB
-    Write-Log ("RAM: Total {0}MB | Livre {1}MB | Usada {2}MB" -f `
-        [math]::Round($totalRam), [math]::Round($freeRam), [math]::Round($totalRam - $freeRam)) "INFO"
-
-    Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -gt 0 } | ForEach-Object {
-        $t = [math]::Round(($_.Used + $_.Free) / 1GB, 1)
-        $u = [math]::Round($_.Used / 1GB, 1)
-        $f = [math]::Round($_.Free / 1GB, 1)
-        Write-Log "Disco $($_.Name): ${t}GB total | ${u}GB usado | ${f}GB livre" "INFO"
-    }
     Write-Log "Otimizacao concluida." "OK"
 }
 
 function Invoke-Diagnostico {
-    Write-Log "=== TOP 10 PROCESSOS POR RAM ===" "STEP"
+    Write-Log "=== DIAGNOSTICO ===" "STEP"
+    Write-Log "Top 10 processos por RAM:" "INFO"
     Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 10 | ForEach-Object {
         $mem = [math]::Round($_.WorkingSet64 / 1MB, 1)
         Write-Log (" {0} {1} MB" -f $_.Name.PadRight(28), $mem.ToString().PadLeft(8)) "PLAIN"
     }
-
-    Write-Log "=== PROGRAMAS NA INICIALIZACAO ===" "STEP"
+    Write-Log "Programas na inicializacao:" "INFO"
     @("HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
       "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run") | ForEach-Object {
         $scope = if ($_ -like "*HKLM*") { "Sistema" } else { "Usuario" }
@@ -355,60 +272,46 @@ function Invoke-Diagnostico {
                 ForEach-Object { Write-Log " [$scope] $($_.Name)" "PLAIN" }
         }
     }
-
-    Write-Log "=== SEGURANCA ===" "STEP"
+    Write-Log "Seguranca:" "INFO"
     try {
         $def = Get-MpComputerStatus -ErrorAction Stop
         if ($def.AntivirusEnabled) {
             Write-Log "Defender ATIVO | Definicoes: $($def.AntivirusSignatureLastUpdated.ToString('dd/MM/yyyy'))" "OK"
-        } else {
-            Write-Log "Defender INATIVO" "ERRO"
-        }
+        } else { Write-Log "Defender INATIVO" "ERRO" }
     } catch { Write-Log "Nao foi possivel verificar o Defender." "AVISO" }
-
     try {
-        $fwOut = netsh advfirewall show allprofiles state 2>&1 | Out-String
+        $fwOut   = netsh advfirewall show allprofiles state 2>&1 | Out-String
         $onCount = ([regex]::Matches($fwOut, "(?i)State\s+ON")).Count
         if ($onCount -gt 0) { Write-Log "Firewall: $onCount perfil(is) ativo(s)" "OK" }
         else { Write-Log "Firewall INATIVO" "ERRO" }
-    } catch { Write-Log "Nao foi possivel verificar Firewall." "AVISO" }
-
-    Write-Log "=== ERROS CRITICOS (ULTIMAS 24H) ===" "STEP"
+    } catch {}
+    Write-Log "Erros criticos (ultimas 24h):" "INFO"
     try {
         $events = Get-WinEvent -FilterHashtable @{LogName='System';Level=1,2;StartTime=([datetime]::Now.AddHours(-24))} `
             -MaxEvents 10 -ErrorAction SilentlyContinue
         if ($events -and $events.Count -gt 0) {
-            Write-Log "$($events.Count) erro(s) critico(s) nas ultimas 24h:" "AVISO"
+            Write-Log "$($events.Count) erro(s) critico(s):" "AVISO"
             $events | ForEach-Object {
                 $first = $_.Message.Split("`n")[0]
-                $msg = $first.Substring(0, [Math]::Min(90, $first.Length))
+                $msg   = $first.Substring(0, [Math]::Min(90, $first.Length))
                 Write-Log " [$($_.TimeCreated.ToString('HH:mm'))] $($_.ProviderName): $msg" "PLAIN"
             }
-        } else {
-            Write-Log "Nenhum erro critico nas ultimas 24h." "OK"
-        }
+        } else { Write-Log "Nenhum erro critico nas ultimas 24h." "OK" }
     } catch { Write-Log "Nao foi possivel verificar Event Viewer." "AVISO" }
-
     Write-Log "Diagnostico concluido." "OK"
 }
 
 function Invoke-SFCDISM {
+    Write-Log "=== SFC + DISM ===" "STEP"
     Write-Log "Executando SFC /scannow (aguarde)..." "STEP"
     $sfc = sfc /scannow 2>&1 | Out-String
-    if ($sfc -match "encontrou|found") {
-        Write-Log "SFC: problemas encontrados e corrigidos." "OK"
-    } elseif ($sfc -match "nao encontrou|did not find") {
-        Write-Log "SFC: nenhuma violacao de integridade encontrada." "OK"
-    } else {
-        Write-Log "SFC concluido." "INFO"
-    }
+    if ($sfc -match "encontrou|found")             { Write-Log "SFC: problemas encontrados e corrigidos." "OK" }
+    elseif ($sfc -match "nao encontrou|did not find") { Write-Log "SFC: nenhuma violacao encontrada." "OK" }
+    else { Write-Log "SFC concluido." "INFO" }
     Write-Log "Executando DISM RestoreHealth (aguarde)..." "STEP"
     $dism = DISM /Online /Cleanup-Image /RestoreHealth 2>&1 | Out-String
-    if ($dism -match "concluida|successfully") {
-        Write-Log "DISM concluido com sucesso." "OK"
-    } else {
-        Write-Log "DISM: verifique o resultado manualmente." "AVISO"
-    }
+    if ($dism -match "concluida|successfully") { Write-Log "DISM concluido com sucesso." "OK" }
+    else { Write-Log "DISM: verifique o resultado manualmente." "AVISO" }
 }
 
 # ================================================================
@@ -431,7 +334,7 @@ function Show-Adapters {
 
 function Invoke-SetDNS {
     param([string]$Adapter, [string]$DNS1, [string]$DNS2)
-    Write-Log "Configurando DNS em '$Adapter' -> $DNS1 / $DNS2 ..." "STEP"
+    Write-Log "Configurando DNS em '$Adapter' -> $DNS1 / $DNS2..." "STEP"
     try {
         $cfg = Get-NicConfig -Adapter $Adapter
         if (-not $cfg) { Write-Log "Adaptador '$Adapter' nao encontrado." "ERRO"; return }
@@ -439,7 +342,7 @@ function Invoke-SetDNS {
         $r = Invoke-CimMethod -InputObject $cfg -MethodName SetDNSServerSearchOrder `
              -Arguments @{ DNSServerSearchOrder = [string[]]$dns }
         if ($r.ReturnValue -eq 0) { Write-Log "DNS configurado." "OK" }
-        else { Write-Log "Concluido com codigo WMI: $($r.ReturnValue)" "AVISO" }
+        else { Write-Log "Codigo WMI: $($r.ReturnValue)" "AVISO" }
     } catch { Write-Log $_ "ERRO" }
 }
 
@@ -451,39 +354,32 @@ function Invoke-ResetDNS {
         if (-not $cfg) { Write-Log "Adaptador '$Adapter' nao encontrado." "ERRO"; return }
         $r = Invoke-CimMethod -InputObject $cfg -MethodName SetDNSServerSearchOrder `
              -Arguments @{ DNSServerSearchOrder = [string[]]$null }
-        if ($r.ReturnValue -eq 0) { Write-Log "DNS resetado para DHCP automatico." "OK" }
-        else { Write-Log "Concluido com codigo WMI: $($r.ReturnValue)" "AVISO" }
+        if ($r.ReturnValue -eq 0) { Write-Log "DNS resetado para DHCP." "OK" }
+        else { Write-Log "Codigo WMI: $($r.ReturnValue)" "AVISO" }
     } catch { Write-Log $_ "ERRO" }
 }
 
 function Invoke-TestarConectividade {
+    Write-Log "Testando conectividade..." "STEP"
     foreach ($target in @("8.8.8.8","1.1.1.1","google.com")) {
         $ping = New-Object System.Net.NetworkInformation.Ping
         try {
             $reply = $ping.Send($target, 3000)
-            if ($reply.Status -eq "Success") {
-                Write-Log "Ping ${target}: $($reply.RoundtripTime)ms" "OK"
-            } else {
-                Write-Log "Ping ${target}: $($reply.Status)" "ERRO"
-            }
-        } catch {
-            Write-Log "Ping ${target} falhou: $_" "ERRO"
-        }
+            if ($reply.Status -eq "Success") { Write-Log "Ping ${target}: $($reply.RoundtripTime)ms" "OK" }
+            else { Write-Log "Ping ${target}: $($reply.Status)" "ERRO" }
+        } catch { Write-Log "Ping ${target} falhou: $_" "ERRO" }
     }
 }
 
 function Show-IPConfig {
-    Write-Log "IPConfig /all:" "STEP"
-    ipconfig /all 2>&1 | ForEach-Object {
-        if ($_.Trim()) { Write-Host "   $_" -ForegroundColor Gray }
-    }
+    Write-Log "=== IPCONFIG ===" "STEP"
+    ipconfig /all 2>&1 | ForEach-Object { if ($_.Trim()) { Write-Log $_ "PLAIN" } }
 }
 
 function Invoke-JoinDomain {
-    param([string]$Domain,[string]$User,[string]$Pass,[string]$NewName)
+    param([string]$Domain, [string]$User, [string]$Pass, [string]$NewName)
     if (-not $Domain -or -not $User -or -not $Pass) {
-        Write-Log "Preencha Dominio, Usuario e Senha." "ERRO"
-        return
+        Write-Log "Preencha Dominio, Usuario e Senha." "ERRO"; return
     }
     Write-Log "Ingressando em $Domain como $User..." "STEP"
     try {
@@ -493,200 +389,553 @@ function Invoke-JoinDomain {
             Write-Log "PC renomeado para '$NewName' e ingressado em $Domain." "OK"
         } else {
             Add-Computer -DomainName $Domain -Credential $cred -Force
-            Write-Log "Ingressado em $Domain com sucesso." "OK"
+            Write-Log "Ingressado em $Domain." "OK"
         }
-        Write-Log "Reinicie o computador para aplicar as alteracoes." "AVISO"
-    } catch {
-        Write-Log "Falha ao ingressar no dominio: $_" "ERRO"
-    }
+        Write-Log "Reinicie o computador para aplicar." "AVISO"
+    } catch { Write-Log "Falha ao ingressar no dominio: $_" "ERRO" }
 }
 
 # ================================================================
-# MENUS
+# ASYNC HELPER  — copia funcoes para o runspace e executa em background
 # ================================================================
-function Show-MainMenu {
-    Clear-Host
-    Write-Host ""
-    Write-Host "  _   _           _  _____           _" -ForegroundColor Cyan
-    Write-Host " | \ | | _____  _| ||_   _|__   ___ | |" -ForegroundColor Cyan
-    Write-Host " |  \| |/ _ \ \/ / __|| |/ _ \ / _ \| |" -ForegroundColor Cyan
-    Write-Host " | |\  |  __/>  <| |_ | | (_) | (_) | |" -ForegroundColor Cyan
-    Write-Host " |_| \_|\___/_/\_\\__||_|\___/ \___/|_|" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "        Ferramenta de TI da Next  v$script:VERSION" -ForegroundColor DarkCyan
-    Show-SysInfo
-    Write-Sep
-    Write-Host "  [1] Instalacoes de Software" -ForegroundColor White
-    Write-Host "  [2] Tweaks do Sistema"       -ForegroundColor White
-    Write-Host "  [3] Manutencao"              -ForegroundColor White
-    Write-Host "  [4] Rede / Dominio"          -ForegroundColor White
-    Write-Host "  [5] Abrir pasta de relatorios ($script:REPORT_DIR)" -ForegroundColor White
-    Write-Host "  [0] Sair" -ForegroundColor DarkGray
-    Write-Sep
-}
+$script:FuncNames = @(
+    'Write-Log','Test-Winget','Install-Winget','Install-WingetApp',
+    'Install-Office','Install-PadraoNext',
+    'Invoke-TweakHibernacao','Invoke-TweakSmartApp','Invoke-TweakDrivers',
+    'Invoke-OtimizarPC','Invoke-Diagnostico','Invoke-SFCDISM',
+    'Get-NicConfig','Show-Adapters','Invoke-SetDNS','Invoke-ResetDNS',
+    'Invoke-TestarConectividade','Show-IPConfig','Invoke-JoinDomain'
+)
 
-function Install-PadraoNext {
-    Write-Log "Instalando padrao Next: Chrome, WinRAR, Adobe Reader, AnyDesk, TeamViewer..." "STEP"
-    if (-not (Test-Winget)) { Install-Winget }
-    Install-WingetApp "Google.Chrome"                "Google Chrome"
-    Install-WingetApp "RARLab.WinRAR"                "WinRAR"
-    Install-WingetApp "Adobe.Acrobat.Reader.64-bit"  "Adobe Acrobat Reader"
-    Install-WingetApp "AnyDesk.AnyDesk"              "AnyDesk"
-    Install-WingetApp "TeamViewer.TeamViewer"         "TeamViewer"
-    Write-Log "Padrao Next instalado. Escolha a versao do Office separadamente." "OK"
-}
+function Invoke-Async {
+    param([ScriptBlock]$Code, [hashtable]$Vars = @{})
 
-function Menu-Instalacoes {
-    while ($true) {
-        Clear-Host
-        Write-Header "INSTALACOES DE SOFTWARE"
-        Write-Host "  --- Padrao Next ---" -ForegroundColor DarkCyan
-        Write-Host "  [P] Instalar PADRAO NEXT (Chrome + WinRAR + Adobe Reader + AnyDesk + TeamViewer)" -ForegroundColor Cyan
-        Write-Host ""
-        Write-Host "  --- Programas individuais ---" -ForegroundColor DarkCyan
-        Write-Host "  [1] Google Chrome              (winget)" -ForegroundColor White
-        Write-Host "  [2] WinRAR                     (winget)" -ForegroundColor White
-        Write-Host "  [3] AnyDesk                    (winget)" -ForegroundColor White
-        Write-Host "  [4] TeamViewer                 (winget)" -ForegroundColor White
-        Write-Host "  [8] Adobe Acrobat Reader DC    (winget)" -ForegroundColor White
-        Write-Host ""
-        Write-Host "  --- Microsoft Office (ODT) ---" -ForegroundColor DarkCyan
-        Write-Host "  [5] Microsoft 365              (ODT)"    -ForegroundColor White
-        Write-Host "  [6] Office 2021 Pro Plus VL    (ODT)"    -ForegroundColor White
-        Write-Host "  [7] Office 2016 Pro Plus VL    (ODT)"    -ForegroundColor White
-        Write-Sep
-        Write-Host "  [0] Voltar" -ForegroundColor DarkGray
-        $op = Read-Option
-        switch ($op) {
-            "P" { Install-PadraoNext; Pause-Enter }
-            "p" { Install-PadraoNext; Pause-Enter }
-            "1" { if (-not (Test-Winget)) { Install-Winget }; Install-WingetApp "Google.Chrome"         "Google Chrome"; Pause-Enter }
-            "2" { if (-not (Test-Winget)) { Install-Winget }; Install-WingetApp "RARLab.WinRAR"         "WinRAR"; Pause-Enter }
-            "3" { if (-not (Test-Winget)) { Install-Winget }; Install-WingetApp "AnyDesk.AnyDesk"       "AnyDesk"; Pause-Enter }
-            "4" { if (-not (Test-Winget)) { Install-Winget }; Install-WingetApp "TeamViewer.TeamViewer" "TeamViewer"; Pause-Enter }
-            "8" { if (-not (Test-Winget)) { Install-Winget }; Install-WingetApp "Adobe.Acrobat.Reader.64-bit" "Adobe Acrobat Reader"; Pause-Enter }
-            "5" { Install-Office "365"; Pause-Enter }
-            "6" { Install-Office "2021"; Pause-Enter }
-            "7" { Install-Office "2016"; Pause-Enter }
-            "0" { return }
-            default { Write-Log "Opcao invalida." "AVISO"; Start-Sleep -Milliseconds 600 }
-        }
+    $iss = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
+    Get-ChildItem function: | Where-Object { $_.Name -in $script:FuncNames } | ForEach-Object {
+        $fd = New-Object System.Management.Automation.Runspaces.SessionStateFunctionEntry($_.Name, $_.ScriptBlock.ToString())
+        $iss.Commands.Add($fd)
     }
-}
 
-function Menu-Tweaks {
-    while ($true) {
-        Clear-Host
-        Write-Header "TWEAKS DO SISTEMA"
-        Write-Host "  [1] Desativar hibernacao (powercfg -h off)" -ForegroundColor White
-        Write-Host "  [2] Desativar Smart App Control (Win11)"    -ForegroundColor White
-        Write-Host "  [3] Atualizar drivers via Windows Update"   -ForegroundColor White
-        Write-Host "  [4] Aplicar TODOS"                          -ForegroundColor White
-        Write-Sep
-        Write-Host "  [0] Voltar" -ForegroundColor DarkGray
-        $op = Read-Option
-        switch ($op) {
-            "1" { Invoke-TweakHibernacao; Pause-Enter }
-            "2" { Invoke-TweakSmartApp; Pause-Enter }
-            "3" { Invoke-TweakDrivers; Pause-Enter }
-            "4" { Invoke-TweakHibernacao; Invoke-TweakSmartApp; Invoke-TweakDrivers; Pause-Enter }
-            "0" { return }
-            default { Write-Log "Opcao invalida." "AVISO"; Start-Sleep -Milliseconds 600 }
-        }
-    }
-}
+    $rs = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace($iss)
+    $rs.ApartmentState = "MTA"
+    $rs.ThreadOptions  = "ReuseThread"
+    $rs.Open()
 
-function Menu-Manutencao {
-    while ($true) {
-        Clear-Host
-        Write-Header "MANUTENCAO"
-        Write-Host "  [1] Otimizar PC (temp, lixeira, cleanmgr, DNS)" -ForegroundColor White
-        Write-Host "  [2] Diagnostico completo"                       -ForegroundColor White
-        Write-Host "  [3] SFC + DISM"                                  -ForegroundColor White
-        Write-Host "  [4] Flush DNS"                                   -ForegroundColor White
-        Write-Host "  [5] Abrir pasta de relatorios"                   -ForegroundColor White
-        Write-Sep
-        Write-Host "  [0] Voltar" -ForegroundColor DarkGray
-        $op = Read-Option
-        switch ($op) {
-            "1" { Invoke-OtimizarPC; Pause-Enter }
-            "2" { Invoke-Diagnostico; Pause-Enter }
-            "3" { Invoke-SFCDISM; Pause-Enter }
-            "4" { ipconfig /flushdns | Out-Null; Write-Log "Cache DNS limpo." "OK"; Pause-Enter }
-            "5" { Start-Process explorer.exe $script:REPORT_DIR }
-            "0" { return }
-            default { Write-Log "Opcao invalida." "AVISO"; Start-Sleep -Milliseconds 600 }
-        }
-    }
-}
+    $rs.SessionStateProxy.SetVariable("LogQueue",  $script:LogQueue)
+    $rs.SessionStateProxy.SetVariable("LOG_FILE",  $script:LOG_FILE)
+    $rs.SessionStateProxy.SetVariable("OfficeXML", $script:OfficeXML)
+    foreach ($k in $Vars.Keys) { $rs.SessionStateProxy.SetVariable($k, $Vars[$k]) }
 
-function Menu-Rede {
-    while ($true) {
-        Clear-Host
-        Write-Header "REDE / DOMINIO"
-        Write-Host "  [1] Listar adaptadores"               -ForegroundColor White
-        Write-Host "  [2] Configurar DNS manualmente"       -ForegroundColor White
-        Write-Host "  [3] Resetar DNS para DHCP"            -ForegroundColor White
-        Write-Host "  [4] Testar conectividade (ping)"      -ForegroundColor White
-        Write-Host "  [5] Exibir ipconfig /all"             -ForegroundColor White
-        Write-Host "  [6] Ingressar em dominio AD"          -ForegroundColor White
-        Write-Sep
-        Write-Host "  [0] Voltar" -ForegroundColor DarkGray
-        $op = Read-Option
-        switch ($op) {
-            "1" { Show-Adapters; Pause-Enter }
-            "2" {
-                Show-Adapters
-                $ad   = Read-Input "Nome do adaptador (ex: Ethernet, Wi-Fi)"
-                $d1   = Read-Input "DNS primario" "8.8.8.8"
-                $d2   = Read-Input "DNS secundario (vazio para nenhum)" "8.8.4.4"
-                Invoke-SetDNS -Adapter $ad -DNS1 $d1 -DNS2 $d2
-                Pause-Enter
-            }
-            "3" {
-                Show-Adapters
-                $ad = Read-Input "Nome do adaptador"
-                Invoke-ResetDNS -Adapter $ad
-                Pause-Enter
-            }
-            "4" { Invoke-TestarConectividade; Pause-Enter }
-            "5" { Show-IPConfig; Pause-Enter }
-            "6" {
-                Write-Log "Ingresso em dominio - reinicio sera necessario." "AVISO"
-                $dom   = Read-Input "Dominio (ex: empresa.local)"
-                $user  = Read-Input "Usuario com permissao de join"
-                Write-Host "Senha > " -ForegroundColor Yellow -NoNewline
-                $secure = Read-Host -AsSecureString
-                $pass   = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-                          [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
-                $name  = Read-Input "Novo nome do PC (vazio = manter atual)"
-                if (Confirm-Yes "Confirmar ingresso em '$dom' como '$user'?") {
-                    Invoke-JoinDomain -Domain $dom -User $user -Pass $pass -NewName $name
-                }
-                Pause-Enter
-            }
-            "0" { return }
-            default { Write-Log "Opcao invalida." "AVISO"; Start-Sleep -Milliseconds 600 }
-        }
-    }
+    $ps = [System.Management.Automation.PowerShell]::Create()
+    $ps.Runspace = $rs
+    [void]$ps.AddScript($Code)
+    [void]$ps.BeginInvoke()
 }
 
 # ================================================================
-# LOOP PRINCIPAL
+# XAML
 # ================================================================
-Write-Log "NextTool v$script:VERSION iniciado em $env:COMPUTERNAME (log: $script:LOG_FILE)" "INFO"
+[xml]$XAML = @"
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="NextTool v3.0 - Ferramenta de TI"
+    Height="720" Width="980"
+    MinHeight="600" MinWidth="820"
+    WindowStartupLocation="CenterScreen"
+    Background="#282C34"
+    FontFamily="Segoe UI"
+    FontSize="13">
 
-while ($true) {
-    Show-MainMenu
-    $op = Read-Option
-    switch ($op) {
-        "1" { Menu-Instalacoes }
-        "2" { Menu-Tweaks }
-        "3" { Menu-Manutencao }
-        "4" { Menu-Rede }
-        "5" { Start-Process explorer.exe $script:REPORT_DIR }
-        "0" { Write-Log "Encerrando NextTool." "INFO"; break }
-        default { Write-Log "Opcao invalida." "AVISO"; Start-Sleep -Milliseconds 600 }
+  <Window.Resources>
+
+    <Style TargetType="Button">
+      <Setter Property="Background" Value="#61AFEF"/>
+      <Setter Property="Foreground" Value="#1E2128"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="14,7"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border Background="{TemplateBinding Background}"
+                    CornerRadius="4"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Opacity" Value="0.82"/>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Opacity" Value="0.65"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.35"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="CheckBox">
+      <Setter Property="Foreground" Value="#ABB2BF"/>
+      <Setter Property="Margin" Value="0,5"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style TargetType="TextBox">
+      <Setter Property="Background" Value="#1E2128"/>
+      <Setter Property="Foreground" Value="#ABB2BF"/>
+      <Setter Property="BorderBrush" Value="#3E4451"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="8,5"/>
+      <Setter Property="CaretBrush" Value="#ABB2BF"/>
+    </Style>
+
+    <Style TargetType="PasswordBox">
+      <Setter Property="Background" Value="#1E2128"/>
+      <Setter Property="Foreground" Value="#ABB2BF"/>
+      <Setter Property="BorderBrush" Value="#3E4451"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="8,5"/>
+    </Style>
+
+    <Style TargetType="GroupBox">
+      <Setter Property="Foreground" Value="#5C6370"/>
+      <Setter Property="BorderBrush" Value="#3E4451"/>
+      <Setter Property="Margin" Value="0,0,0,14"/>
+      <Setter Property="Padding" Value="10,8"/>
+    </Style>
+
+    <Style TargetType="TabControl">
+      <Setter Property="Background" Value="#21252B"/>
+      <Setter Property="BorderBrush" Value="#3E4451"/>
+      <Setter Property="BorderThickness" Value="0,1,0,0"/>
+    </Style>
+
+    <Style TargetType="TabItem">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="#5C6370"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="18,11"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TabItem">
+            <Border x:Name="TabBorder"
+                    Background="{TemplateBinding Background}"
+                    BorderThickness="0,0,0,3"
+                    BorderBrush="Transparent"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter ContentSource="Header"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="TabBorder" Property="BorderBrush" Value="#61AFEF"/>
+                <Setter Property="Foreground" Value="#61AFEF"/>
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="#ABB2BF"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="Label">
+      <Setter Property="Foreground" Value="#5C6370"/>
+      <Setter Property="Padding" Value="0,0,0,2"/>
+      <Setter Property="FontSize" Value="11"/>
+    </Style>
+
+    <Style TargetType="Separator">
+      <Setter Property="Background" Value="#3E4451"/>
+      <Setter Property="Margin" Value="0,8"/>
+    </Style>
+
+  </Window.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="54"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="180"/>
+    </Grid.RowDefinitions>
+
+    <!-- ============================================================ -->
+    <!-- HEADER                                                        -->
+    <!-- ============================================================ -->
+    <Border Grid.Row="0" Background="#21252B" BorderBrush="#3E4451" BorderThickness="0,0,0,1">
+      <Grid Margin="20,0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="Next" FontSize="22" FontWeight="Bold" Foreground="#61AFEF"/>
+          <TextBlock Text="Tool" FontSize="22" FontWeight="Bold" Foreground="#ABB2BF"/>
+          <TextBlock Text="  v3.0" FontSize="11" Foreground="#5C6370" VerticalAlignment="Bottom" Margin="2,0,0,4"/>
+          <TextBlock Text="  |  Ferramenta de TI" FontSize="11" Foreground="#5C6370" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
+        </StackPanel>
+        <TextBlock Grid.Column="1" x:Name="TxtSysInfo"
+                   Foreground="#5C6370" FontSize="11" VerticalAlignment="Center"/>
+      </Grid>
+    </Border>
+
+    <!-- ============================================================ -->
+    <!-- TABS                                                          -->
+    <!-- ============================================================ -->
+    <TabControl Grid.Row="1" x:Name="MainTabs" Margin="0">
+
+      <!-- ========================================================== -->
+      <!-- TAB: INSTALACOES                                            -->
+      <!-- ========================================================== -->
+      <TabItem Header="  Instalações  ">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#21252B">
+          <StackPanel Margin="24,18">
+
+            <Button x:Name="BtnPadraoNext"
+                    Content="  ⚡  Instalar Padrão Next  —  Chrome · WinRAR · Adobe Reader · AnyDesk · TeamViewer  "
+                    HorizontalAlignment="Left"
+                    Background="#98C379"
+                    Foreground="#1E2128"
+                    FontSize="13"
+                    Padding="18,12"
+                    Margin="0,0,0,20"/>
+
+            <GroupBox Header="Programas individuais">
+              <WrapPanel Margin="4,4">
+                <CheckBox x:Name="ChkChrome"   Content="Google Chrome"        Margin="0,5,28,5"/>
+                <CheckBox x:Name="ChkWinrar"   Content="WinRAR"               Margin="0,5,28,5"/>
+                <CheckBox x:Name="ChkAdobe"    Content="Adobe Acrobat Reader" Margin="0,5,28,5"/>
+                <CheckBox x:Name="ChkAnydesk"  Content="AnyDesk"              Margin="0,5,28,5"/>
+                <CheckBox x:Name="ChkTeamview" Content="TeamViewer"           Margin="0,5,28,5"/>
+              </WrapPanel>
+            </GroupBox>
+
+            <Button x:Name="BtnInstalarSelecionados"
+                    Content="Instalar Selecionados"
+                    HorizontalAlignment="Left"
+                    Margin="0,0,0,22"/>
+
+            <GroupBox Header="Microsoft Office  (via ODT — download completo, pode demorar)">
+              <StackPanel Orientation="Horizontal" Margin="4,4">
+                <Button x:Name="BtnO365"  Content="Microsoft 365"   Margin="0,0,10,0"/>
+                <Button x:Name="BtnO2021" Content="Office 2021 VL"  Margin="0,0,10,0"/>
+                <Button x:Name="BtnO2016" Content="Office 2016 VL"/>
+              </StackPanel>
+            </GroupBox>
+
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- ========================================================== -->
+      <!-- TAB: TWEAKS                                                 -->
+      <!-- ========================================================== -->
+      <TabItem Header="  Tweaks  ">
+        <StackPanel Margin="24,18" Background="#21252B">
+          <GroupBox Header="Otimizacoes do sistema">
+            <StackPanel Margin="4,4">
+              <CheckBox x:Name="ChkHibernacao"
+                        Content="Desativar Hibernacao  —  libera espaco em disco  (powercfg -h off)"/>
+              <CheckBox x:Name="ChkSmartApp"
+                        Content="Desativar Smart App Control  —  Windows 11"/>
+              <CheckBox x:Name="ChkDrivers"
+                        Content="Atualizar Drivers  —  via Windows Update  (PSWindowsUpdate)"/>
+            </StackPanel>
+          </GroupBox>
+          <Button x:Name="BtnAplicarTweaks"
+                  Content="Aplicar Tweaks Selecionados"
+                  HorizontalAlignment="Left"
+                  Background="#E5C07B"
+                  Foreground="#1E2128"/>
+        </StackPanel>
+      </TabItem>
+
+      <!-- ========================================================== -->
+      <!-- TAB: MANUTENCAO                                             -->
+      <!-- ========================================================== -->
+      <TabItem Header="  Manutenção  ">
+        <StackPanel Margin="24,18" Background="#21252B">
+          <GroupBox Header="Ferramentas">
+            <WrapPanel Margin="4,4">
+              <Button x:Name="BtnOtimizar"    Content="Otimizar PC"      Width="155" Height="62" Margin="0,0,10,10"/>
+              <Button x:Name="BtnDiagnostico" Content="Diagnostico"      Width="155" Height="62" Margin="0,0,10,10"/>
+              <Button x:Name="BtnSfcDism"     Content="SFC + DISM"       Width="155" Height="62" Margin="0,0,10,10"/>
+              <Button x:Name="BtnFlushDns"    Content="Flush DNS"        Width="155" Height="62" Margin="0,0,10,10"/>
+              <Button x:Name="BtnRelatorio"   Content="Abrir Relatorios" Width="155" Height="62"
+                      Background="#4B5263" Foreground="#ABB2BF"/>
+            </WrapPanel>
+          </GroupBox>
+        </StackPanel>
+      </TabItem>
+
+      <!-- ========================================================== -->
+      <!-- TAB: REDE / DOMINIO                                         -->
+      <!-- ========================================================== -->
+      <TabItem Header="  Rede / Domínio  ">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#21252B">
+          <Grid Margin="24,18">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="24"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Coluna esquerda -->
+            <StackPanel Grid.Column="0">
+              <GroupBox Header="Ferramentas de rede">
+                <WrapPanel Margin="4,4">
+                  <Button x:Name="BtnListarAdapters" Content="Listar Adaptadores"   Margin="0,0,8,8"/>
+                  <Button x:Name="BtnTestarConect"   Content="Testar Conectividade" Margin="0,0,8,8"/>
+                  <Button x:Name="BtnIPConfig"       Content="IPConfig /all"        Margin="0,0,0,8"/>
+                </WrapPanel>
+              </GroupBox>
+
+              <GroupBox Header="Configurar DNS">
+                <StackPanel Margin="4,4">
+                  <Label Content="Adaptador  (ex: Ethernet, Wi-Fi)"/>
+                  <TextBox x:Name="TxtDnsAdapter" Margin="0,0,0,8"/>
+                  <Label Content="DNS Primario"/>
+                  <TextBox x:Name="TxtDns1" Text="8.8.8.8" Margin="0,0,0,8"/>
+                  <Label Content="DNS Secundario"/>
+                  <TextBox x:Name="TxtDns2" Text="8.8.4.4" Margin="0,0,0,12"/>
+                  <StackPanel Orientation="Horizontal">
+                    <Button x:Name="BtnSetDns"   Content="Configurar DNS"    Margin="0,0,8,0"/>
+                    <Button x:Name="BtnResetDns" Content="Resetar para DHCP" Background="#4B5263" Foreground="#ABB2BF"/>
+                  </StackPanel>
+                </StackPanel>
+              </GroupBox>
+            </StackPanel>
+
+            <!-- Coluna direita -->
+            <StackPanel Grid.Column="2">
+              <GroupBox Header="Ingressar em Dominio AD">
+                <StackPanel Margin="4,4">
+                  <Label Content="Dominio  (ex: empresa.local)"/>
+                  <TextBox x:Name="TxtDominio" Margin="0,0,0,8"/>
+                  <Label Content="Usuario com permissao de join"/>
+                  <TextBox x:Name="TxtDomUser" Margin="0,0,0,8"/>
+                  <Label Content="Senha"/>
+                  <PasswordBox x:Name="TxtDomPass" Margin="0,0,0,8"/>
+                  <Label Content="Novo nome do PC  (opcional)"/>
+                  <TextBox x:Name="TxtDomName" Margin="0,0,0,14"/>
+                  <Button x:Name="BtnJoinDomain"
+                          Content="Ingressar no Dominio"
+                          HorizontalAlignment="Left"
+                          Background="#E06C75"
+                          Foreground="#1E2128"/>
+                </StackPanel>
+              </GroupBox>
+            </StackPanel>
+
+          </Grid>
+        </ScrollViewer>
+      </TabItem>
+
+    </TabControl>
+
+    <!-- ============================================================ -->
+    <!-- LOG PANEL                                                     -->
+    <!-- ============================================================ -->
+    <Grid Grid.Row="2" Background="#1E2128">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="26"/>
+        <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+      <Border Grid.Row="0" Background="#21252B" BorderBrush="#3E4451" BorderThickness="0,1,0,0">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0">
+          <TextBlock Text="Log de saida" Foreground="#5C6370" FontSize="11" FontWeight="SemiBold"/>
+          <Button x:Name="BtnLimparLog" Content="limpar"
+                  Padding="8,1" Margin="14,0,0,0"
+                  Background="Transparent" Foreground="#5C6370"
+                  FontSize="10" FontWeight="Normal"/>
+        </StackPanel>
+      </Border>
+      <ListBox Grid.Row="1" x:Name="LogBox"
+               Background="#1E2128"
+               BorderThickness="0"
+               Padding="10,4"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+               VirtualizingPanel.IsVirtualizing="True"
+               VirtualizingPanel.VirtualizationMode="Recycling"
+               FontFamily="Consolas"
+               FontSize="11"/>
+    </Grid>
+
+  </Grid>
+</Window>
+"@
+
+# ================================================================
+# CARREGAR JANELA
+# ================================================================
+$reader = New-Object System.Xml.XmlNodeReader $XAML
+$Window = [Windows.Markup.XamlReader]::Load($reader)
+
+$BtnPadraoNext           = $Window.FindName("BtnPadraoNext")
+$ChkChrome               = $Window.FindName("ChkChrome")
+$ChkWinrar               = $Window.FindName("ChkWinrar")
+$ChkAdobe                = $Window.FindName("ChkAdobe")
+$ChkAnydesk              = $Window.FindName("ChkAnydesk")
+$ChkTeamview             = $Window.FindName("ChkTeamview")
+$BtnInstalarSelecionados = $Window.FindName("BtnInstalarSelecionados")
+$BtnO365                 = $Window.FindName("BtnO365")
+$BtnO2021                = $Window.FindName("BtnO2021")
+$BtnO2016                = $Window.FindName("BtnO2016")
+$ChkHibernacao           = $Window.FindName("ChkHibernacao")
+$ChkSmartApp             = $Window.FindName("ChkSmartApp")
+$ChkDrivers              = $Window.FindName("ChkDrivers")
+$BtnAplicarTweaks        = $Window.FindName("BtnAplicarTweaks")
+$BtnOtimizar             = $Window.FindName("BtnOtimizar")
+$BtnDiagnostico          = $Window.FindName("BtnDiagnostico")
+$BtnSfcDism              = $Window.FindName("BtnSfcDism")
+$BtnFlushDns             = $Window.FindName("BtnFlushDns")
+$BtnRelatorio            = $Window.FindName("BtnRelatorio")
+$TxtDnsAdapter           = $Window.FindName("TxtDnsAdapter")
+$TxtDns1                 = $Window.FindName("TxtDns1")
+$TxtDns2                 = $Window.FindName("TxtDns2")
+$BtnSetDns               = $Window.FindName("BtnSetDns")
+$BtnResetDns             = $Window.FindName("BtnResetDns")
+$BtnListarAdapters       = $Window.FindName("BtnListarAdapters")
+$BtnTestarConect         = $Window.FindName("BtnTestarConect")
+$BtnIPConfig             = $Window.FindName("BtnIPConfig")
+$TxtDominio              = $Window.FindName("TxtDominio")
+$TxtDomUser              = $Window.FindName("TxtDomUser")
+$TxtDomPass              = $Window.FindName("TxtDomPass")
+$TxtDomName              = $Window.FindName("TxtDomName")
+$BtnJoinDomain           = $Window.FindName("BtnJoinDomain")
+$LogBox                  = $Window.FindName("LogBox")
+$BtnLimparLog            = $Window.FindName("BtnLimparLog")
+$TxtSysInfo              = $Window.FindName("TxtSysInfo")
+
+# ================================================================
+# TIMER — drena a fila de log dos runspaces para a UI
+# ================================================================
+$LogTimer = New-Object System.Windows.Threading.DispatcherTimer
+$LogTimer.Interval = [TimeSpan]::FromMilliseconds(120)
+$LogTimer.Add_Tick({
+    $item  = $null
+    $count = 0
+    while ($script:LogQueue.TryDequeue([ref]$item) -and $count -lt 40) {
+        $tb              = New-Object System.Windows.Controls.TextBlock
+        $tb.Text         = $item.Text
+        $tb.Foreground   = [System.Windows.Media.BrushConverter]::new().ConvertFrom($item.Color)
+        $tb.TextWrapping = "Wrap"
+        [void]$LogBox.Items.Add($tb)
+        $count++
     }
-    if ($op -eq "0") { break }
-}
+    if ($count -gt 0) { $LogBox.ScrollIntoView($LogBox.Items[$LogBox.Items.Count - 1]) }
+})
+$LogTimer.Start()
+
+# ================================================================
+# SYSINFO NO HEADER
+# ================================================================
+try {
+    $cs  = Get-CimInstance Win32_ComputerSystem
+    $os  = Get-CimInstance Win32_OperatingSystem
+    $ram = [math]::Round($cs.TotalPhysicalMemory / 1GB, 1)
+    $TxtSysInfo.Text = "$env:COMPUTERNAME  |  $($os.Caption -replace 'Microsoft Windows ','Win ')  |  RAM: ${ram}GB  |  $env:USERNAME @ $($cs.Domain)"
+} catch {}
+
+# ================================================================
+# EVENT HANDLERS
+# ================================================================
+
+# --- Instalacoes ---
+$BtnPadraoNext.Add_Click({
+    Invoke-Async { Install-PadraoNext }
+})
+
+$BtnInstalarSelecionados.Add_Click({
+    $map = @{
+        "Google.Chrome"               = @{ On = $ChkChrome.IsChecked;   Nome = "Google Chrome" }
+        "RARLab.WinRAR"               = @{ On = $ChkWinrar.IsChecked;   Nome = "WinRAR" }
+        "Adobe.Acrobat.Reader.64-bit" = @{ On = $ChkAdobe.IsChecked;    Nome = "Adobe Acrobat Reader" }
+        "AnyDesk.AnyDesk"             = @{ On = $ChkAnydesk.IsChecked;  Nome = "AnyDesk" }
+        "TeamViewer.TeamViewer"       = @{ On = $ChkTeamview.IsChecked; Nome = "TeamViewer" }
+    }
+    $ids   = @($map.Keys | Where-Object { $map[$_].On })
+    $nomes = @{}; foreach ($id in $ids) { $nomes[$id] = $map[$id].Nome }
+
+    if ($ids.Count -eq 0) { Write-Log "Nenhum programa selecionado." "AVISO"; return }
+
+    Invoke-Async {
+        if (-not (Test-Winget)) { Install-Winget }
+        foreach ($id in $Ids) { Install-WingetApp $id $Nomes[$id] }
+    } -Vars @{ Ids = $ids; Nomes = $nomes }
+})
+
+$BtnO365.Add_Click({  Invoke-Async { Install-Office "365"  } })
+$BtnO2021.Add_Click({ Invoke-Async { Install-Office "2021" } })
+$BtnO2016.Add_Click({ Invoke-Async { Install-Office "2016" } })
+
+# --- Tweaks ---
+$BtnAplicarTweaks.Add_Click({
+    $h = $ChkHibernacao.IsChecked
+    $s = $ChkSmartApp.IsChecked
+    $d = $ChkDrivers.IsChecked
+    if (-not $h -and -not $s -and -not $d) { Write-Log "Nenhum tweak selecionado." "AVISO"; return }
+    Invoke-Async {
+        if ($H) { Invoke-TweakHibernacao }
+        if ($S) { Invoke-TweakSmartApp }
+        if ($D) { Invoke-TweakDrivers }
+    } -Vars @{ H = $h; S = $s; D = $d }
+})
+
+# --- Manutencao ---
+$BtnOtimizar.Add_Click({    Invoke-Async { Invoke-OtimizarPC } })
+$BtnDiagnostico.Add_Click({ Invoke-Async { Invoke-Diagnostico } })
+$BtnSfcDism.Add_Click({     Invoke-Async { Invoke-SFCDISM } })
+$BtnFlushDns.Add_Click({
+    Invoke-Async { ipconfig /flushdns | Out-Null; Write-Log "Cache DNS limpo." "OK" }
+})
+$BtnRelatorio.Add_Click({ Start-Process explorer.exe $script:REPORT_DIR })
+
+# --- Rede ---
+$BtnListarAdapters.Add_Click({ Invoke-Async { Show-Adapters } })
+$BtnTestarConect.Add_Click({   Invoke-Async { Invoke-TestarConectividade } })
+$BtnIPConfig.Add_Click({       Invoke-Async { Show-IPConfig } })
+
+$BtnSetDns.Add_Click({
+    $ad = $TxtDnsAdapter.Text.Trim()
+    $d1 = $TxtDns1.Text.Trim()
+    $d2 = $TxtDns2.Text.Trim()
+    if (-not $ad -or -not $d1) { Write-Log "Preencha Adaptador e DNS Primario." "ERRO"; return }
+    Invoke-Async { Invoke-SetDNS -Adapter $A -DNS1 $D1 -DNS2 $D2 } -Vars @{ A = $ad; D1 = $d1; D2 = $d2 }
+})
+
+$BtnResetDns.Add_Click({
+    $ad = $TxtDnsAdapter.Text.Trim()
+    if (-not $ad) { Write-Log "Preencha o nome do Adaptador." "ERRO"; return }
+    Invoke-Async { Invoke-ResetDNS -Adapter $A } -Vars @{ A = $ad }
+})
+
+$BtnJoinDomain.Add_Click({
+    $dom  = $TxtDominio.Text.Trim()
+    $usr  = $TxtDomUser.Text.Trim()
+    $pass = $TxtDomPass.Password
+    $name = $TxtDomName.Text.Trim()
+    if (-not $dom -or -not $usr -or -not $pass) {
+        Write-Log "Preencha Dominio, Usuario e Senha." "ERRO"; return
+    }
+    Invoke-Async {
+        Invoke-JoinDomain -Domain $Dom -User $Usr -Pass $Pass -NewName $Name
+    } -Vars @{ Dom = $dom; Usr = $usr; Pass = $pass; Name = $name }
+})
+
+# --- Log ---
+$BtnLimparLog.Add_Click({ $LogBox.Items.Clear() })
+
+# ================================================================
+# INICIAR
+# ================================================================
+Write-Log "NextTool v$script:VERSION iniciado em $env:COMPUTERNAME" "INFO"
+[void]$Window.ShowDialog()
+$LogTimer.Stop()
