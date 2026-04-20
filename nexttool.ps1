@@ -184,6 +184,115 @@ function Invoke-TweakSmartApp {
     }
 }
 
+function Invoke-TweakTelemetria {
+    Write-Log "Desativando telemetria..." "STEP"
+    $path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection"
+    if (-not (Test-Path $path)) { New-Item -Path $path -Force | Out-Null }
+    Set-ItemProperty -Path $path -Name "AllowTelemetry" -Value 0 -Type DWord -Force
+    Stop-Service  "DiagTrack" -ErrorAction SilentlyContinue
+    Set-Service   "DiagTrack" -StartupType Disabled -ErrorAction SilentlyContinue
+    Write-Log "Telemetria desativada." "OK"
+}
+
+function Invoke-TweakActivityHistory {
+    Write-Log "Desativando historico de atividades..." "STEP"
+    $path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"
+    if (-not (Test-Path $path)) { New-Item -Path $path -Force | Out-Null }
+    Set-ItemProperty -Path $path -Name "EnableActivityFeed"    -Value 0 -Type DWord -Force
+    Set-ItemProperty -Path $path -Name "PublishUserActivities" -Value 0 -Type DWord -Force
+    Set-ItemProperty -Path $path -Name "UploadUserActivities"  -Value 0 -Type DWord -Force
+    Write-Log "Historico de atividades desativado." "OK"
+}
+
+function Invoke-TweakLocationTracking {
+    Write-Log "Desativando rastreamento de localizacao..." "STEP"
+    $path = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location"
+    if (-not (Test-Path $path)) { New-Item -Path $path -Force | Out-Null }
+    Set-ItemProperty -Path $path -Name "Value" -Value "Deny" -Force
+    Write-Log "Rastreamento de localizacao desativado." "OK"
+}
+
+function Invoke-TweakFileExtensions {
+    Write-Log "Exibindo extensoes de arquivo..." "STEP"
+    Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" `
+        -Name "HideFileExt" -Value 0 -Type DWord -Force
+    Write-Log "Extensoes de arquivo visiveis." "OK"
+}
+
+function Invoke-TweakHiddenFiles {
+    Write-Log "Exibindo arquivos ocultos..." "STEP"
+    Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" `
+        -Name "Hidden" -Value 1 -Type DWord -Force
+    Write-Log "Arquivos ocultos visiveis." "OK"
+}
+
+function Invoke-TweakNumLock {
+    Write-Log "Ativando Num Lock na inicializacao..." "STEP"
+    Set-ItemProperty -Path "HKCU:\Control Panel\Keyboard" -Name "InitialKeyboardIndicators" -Value "2" -Force
+    Write-Log "Num Lock ativado." "OK"
+}
+
+function Invoke-TweakEndTask {
+    Write-Log "Habilitando Finalizar Tarefa no botao direito..." "STEP"
+    $path = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDeveloperSettings"
+    if (-not (Test-Path $path)) { New-Item -Path $path -Force | Out-Null }
+    Set-ItemProperty -Path $path -Name "TaskbarEndTask" -Value 1 -Type DWord -Force
+    Write-Log "Finalizar Tarefa habilitado." "OK"
+}
+
+function Invoke-TweakServices {
+    Write-Log "Configurando servicos desnecessarios para Manual..." "STEP"
+    $svcs = @(
+        "DiagTrack","dmwappushservice","lfsvc","MapsBroker",
+        "RemoteRegistry","TrkWks","WMPNetworkSvc",
+        "XblAuthManager","XblGameSave","XboxGipSvc","XboxNetApiSvc"
+    )
+    foreach ($svc in $svcs) {
+        try {
+            if (Get-Service -Name $svc -ErrorAction SilentlyContinue) {
+                Set-Service -Name $svc -StartupType Manual -ErrorAction SilentlyContinue
+                Write-Log " - $svc -> Manual" "PLAIN"
+            }
+        } catch {}
+    }
+    Write-Log "Servicos configurados." "OK"
+}
+
+function Invoke-TweakUltimatePerf {
+    Write-Log "Ativando plano Ultimate Performance..." "STEP"
+    $result = powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 2>&1 | Out-String
+    $guid   = ([regex]::Match($result, "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")).Value
+    if ($guid) {
+        powercfg -setactive $guid | Out-Null
+        Write-Log "Ultimate Performance ativado (GUID: $guid)." "OK"
+    } else {
+        Write-Log "Nao foi possivel ativar (pode ja estar ativo): $result" "AVISO"
+    }
+}
+
+function Invoke-TweakDarkTheme {
+    Write-Log "Aplicando tema escuro..." "STEP"
+    $path = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+    Set-ItemProperty -Path $path -Name "AppsUseLightTheme"    -Value 0 -Type DWord -Force
+    Set-ItemProperty -Path $path -Name "SystemUsesLightTheme" -Value 0 -Type DWord -Force
+    Write-Log "Tema escuro aplicado." "OK"
+}
+
+function Invoke-TweakWidgets {
+    Write-Log "Desativando Widgets do Windows 11..." "STEP"
+    $path = "HKLM:\SOFTWARE\Policies\Microsoft\Dsh"
+    if (-not (Test-Path $path)) { New-Item -Path $path -Force | Out-Null }
+    Set-ItemProperty -Path $path -Name "AllowNewsAndInterests" -Value 0 -Type DWord -Force
+    Write-Log "Widgets desativados." "OK"
+}
+
+function Invoke-TweakVerboseLogon {
+    Write-Log "Ativando mensagens detalhadas no logon..." "STEP"
+    $path = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+    Set-ItemProperty -Path $path -Name "VerboseStatus" -Value 1 -Type DWord -Force
+    Write-Log "Mensagens detalhadas no logon ativadas." "OK"
+}
+
 function Invoke-TweakDrivers {
     # Etapa 1: Windows Update
     Write-Log "=== ETAPA 1 — Windows Update (drivers) ===" "STEP"
@@ -416,6 +525,10 @@ $script:FuncNames = @(
     'Write-Log','Test-Winget','Install-Winget','Install-WingetApp',
     'Install-Office','Install-PadraoNext',
     'Invoke-TweakHibernacao','Invoke-TweakSmartApp','Invoke-TweakDrivers',
+    'Invoke-TweakTelemetria','Invoke-TweakActivityHistory','Invoke-TweakLocationTracking',
+    'Invoke-TweakFileExtensions','Invoke-TweakHiddenFiles','Invoke-TweakNumLock',
+    'Invoke-TweakEndTask','Invoke-TweakServices',
+    'Invoke-TweakUltimatePerf','Invoke-TweakDarkTheme','Invoke-TweakWidgets','Invoke-TweakVerboseLogon',
     'Invoke-OtimizarPC','Invoke-Diagnostico','Invoke-SFCDISM',
     'Get-NicConfig','Show-Adapters','Invoke-SetDNS','Invoke-ResetDNS',
     'Invoke-TestarConectividade','Show-IPConfig','Invoke-JoinDomain'
@@ -652,23 +765,74 @@ function Invoke-Async {
       <!-- TAB: TWEAKS                                                 -->
       <!-- ========================================================== -->
       <TabItem Header="  Tweaks  ">
-        <StackPanel Margin="24,18" Background="#21252B">
-          <GroupBox Header="Otimizacoes do sistema">
-            <StackPanel Margin="4,4">
-              <CheckBox x:Name="ChkHibernacao"
-                        Content="Desativar Hibernacao  —  libera espaco em disco  (powercfg -h off)"/>
-              <CheckBox x:Name="ChkSmartApp"
-                        Content="Desativar Smart App Control  —  Windows 11"/>
-              <CheckBox x:Name="ChkDrivers"
-                        Content="Atualizar Drivers  —  via Windows Update  (PSWindowsUpdate)"/>
+        <Grid Background="#21252B">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
+
+          <!-- Presets -->
+          <Border Grid.Row="0" Background="#1E2128" Padding="16,10">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="Selecao rapida:" Foreground="#5C6370" VerticalAlignment="Center" Margin="0,0,12,0" FontSize="11"/>
+              <Button x:Name="BtnPresetNext"    Content="Padrao Next" Background="#98C379" Foreground="#1E2128" Padding="14,5" Margin="0,0,8,0"/>
+              <Button x:Name="BtnPresetLimpar"  Content="Limpar"      Background="#4B5263" Foreground="#ABB2BF" Padding="14,5"/>
             </StackPanel>
-          </GroupBox>
-          <Button x:Name="BtnAplicarTweaks"
-                  Content="Aplicar Tweaks Selecionados"
-                  HorizontalAlignment="Left"
-                  Background="#E5C07B"
-                  Foreground="#1E2128"/>
-        </StackPanel>
+          </Border>
+
+          <!-- Checkboxes -->
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0">
+            <Grid Margin="20,14">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="20"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+
+              <!-- Coluna esquerda: Essenciais -->
+              <StackPanel Grid.Column="0">
+                <GroupBox Header="Essenciais  (Padrao Next)">
+                  <StackPanel Margin="4,4">
+                    <CheckBox x:Name="ChkTelemetria"       Content="Desativar Telemetria"/>
+                    <CheckBox x:Name="ChkActivityHistory"  Content="Desativar Historico de Atividades"/>
+                    <CheckBox x:Name="ChkLocationTracking" Content="Desativar Rastreamento de Localizacao"/>
+                    <CheckBox x:Name="ChkFileExtensions"   Content="Exibir Extensoes de Arquivo"/>
+                    <CheckBox x:Name="ChkHiddenFiles"      Content="Exibir Arquivos Ocultos"/>
+                    <CheckBox x:Name="ChkNumLock"          Content="Num Lock ativo na inicializacao"/>
+                    <CheckBox x:Name="ChkEndTask"          Content="Finalizar Tarefa no botao direito"/>
+                    <CheckBox x:Name="ChkServices"         Content="Servicos desnecessarios para Manual"/>
+                    <CheckBox x:Name="ChkHibernacao"       Content="Desativar Hibernacao"/>
+                    <CheckBox x:Name="ChkSmartApp"         Content="Desativar Smart App Control  (Win11)"/>
+                  </StackPanel>
+                </GroupBox>
+              </StackPanel>
+
+              <!-- Coluna direita: Preferencias -->
+              <StackPanel Grid.Column="2">
+                <GroupBox Header="Preferencias  (opcionais)">
+                  <StackPanel Margin="4,4">
+                    <CheckBox x:Name="ChkUltimatePerf"  Content="Plano Ultimate Performance"/>
+                    <CheckBox x:Name="ChkDarkTheme"     Content="Tema Escuro do Windows"/>
+                    <CheckBox x:Name="ChkWidgets"       Content="Desativar Widgets  (Win11)"/>
+                    <CheckBox x:Name="ChkVerboseLogon"  Content="Mensagens detalhadas no Logon"/>
+                  </StackPanel>
+                </GroupBox>
+              </StackPanel>
+
+            </Grid>
+          </ScrollViewer>
+
+          <!-- Botao aplicar -->
+          <Border Grid.Row="2" Background="#1E2128" Padding="16,10">
+            <Button x:Name="BtnAplicarTweaks"
+                    Content="Aplicar Tweaks Selecionados"
+                    HorizontalAlignment="Left"
+                    Background="#E5C07B"
+                    Foreground="#1E2128"/>
+          </Border>
+
+        </Grid>
       </TabItem>
 
       <!-- ========================================================== -->
@@ -803,9 +967,22 @@ $BtnInstalarSelecionados = $Window.FindName("BtnInstalarSelecionados")
 $BtnO365                 = $Window.FindName("BtnO365")
 $BtnO2021                = $Window.FindName("BtnO2021")
 $BtnO2016                = $Window.FindName("BtnO2016")
+$BtnPresetNext           = $Window.FindName("BtnPresetNext")
+$BtnPresetLimpar         = $Window.FindName("BtnPresetLimpar")
+$ChkTelemetria           = $Window.FindName("ChkTelemetria")
+$ChkActivityHistory      = $Window.FindName("ChkActivityHistory")
+$ChkLocationTracking     = $Window.FindName("ChkLocationTracking")
+$ChkFileExtensions       = $Window.FindName("ChkFileExtensions")
+$ChkHiddenFiles          = $Window.FindName("ChkHiddenFiles")
+$ChkNumLock              = $Window.FindName("ChkNumLock")
+$ChkEndTask              = $Window.FindName("ChkEndTask")
+$ChkServices             = $Window.FindName("ChkServices")
 $ChkHibernacao           = $Window.FindName("ChkHibernacao")
 $ChkSmartApp             = $Window.FindName("ChkSmartApp")
-$ChkDrivers              = $Window.FindName("ChkDrivers")
+$ChkUltimatePerf         = $Window.FindName("ChkUltimatePerf")
+$ChkDarkTheme            = $Window.FindName("ChkDarkTheme")
+$ChkWidgets              = $Window.FindName("ChkWidgets")
+$ChkVerboseLogon         = $Window.FindName("ChkVerboseLogon")
 $BtnAplicarTweaks        = $Window.FindName("BtnAplicarTweaks")
 $BtnAtualizarDrivers     = $Window.FindName("BtnAtualizarDrivers")
 $BtnOtimizar             = $Window.FindName("BtnOtimizar")
@@ -893,16 +1070,62 @@ $BtnO2021.Add_Click({ Invoke-Async { Install-Office "2021" } })
 $BtnO2016.Add_Click({ Invoke-Async { Install-Office "2016" } })
 
 # --- Tweaks ---
+$script:AllTweakChks = @(
+    $ChkTelemetria,$ChkActivityHistory,$ChkLocationTracking,
+    $ChkFileExtensions,$ChkHiddenFiles,$ChkNumLock,
+    $ChkEndTask,$ChkServices,$ChkHibernacao,$ChkSmartApp,
+    $ChkUltimatePerf,$ChkDarkTheme,$ChkWidgets,$ChkVerboseLogon
+)
+
+$BtnPresetNext.Add_Click({
+    $ChkTelemetria.IsChecked      = $true
+    $ChkActivityHistory.IsChecked = $true
+    $ChkLocationTracking.IsChecked= $true
+    $ChkFileExtensions.IsChecked  = $true
+    $ChkHiddenFiles.IsChecked     = $true
+    $ChkNumLock.IsChecked         = $true
+    $ChkEndTask.IsChecked         = $true
+    $ChkServices.IsChecked        = $true
+    $ChkHibernacao.IsChecked      = $true
+    $ChkSmartApp.IsChecked        = $true
+    $ChkUltimatePerf.IsChecked    = $false
+    $ChkDarkTheme.IsChecked       = $false
+    $ChkWidgets.IsChecked         = $false
+    $ChkVerboseLogon.IsChecked    = $false
+})
+
+$BtnPresetLimpar.Add_Click({
+    $script:AllTweakChks | ForEach-Object { $_.IsChecked = $false }
+})
+
 $BtnAplicarTweaks.Add_Click({
-    $h = $ChkHibernacao.IsChecked
-    $s = $ChkSmartApp.IsChecked
-    $d = $ChkDrivers.IsChecked
-    if (-not $h -and -not $s -and -not $d) { Write-Log "Nenhum tweak selecionado." "AVISO"; return }
+    $v = @{
+        Tel  = $ChkTelemetria.IsChecked;      Act  = $ChkActivityHistory.IsChecked
+        Loc  = $ChkLocationTracking.IsChecked; Ext  = $ChkFileExtensions.IsChecked
+        Hid  = $ChkHiddenFiles.IsChecked;      Num  = $ChkNumLock.IsChecked
+        End  = $ChkEndTask.IsChecked;          Svc  = $ChkServices.IsChecked
+        Hib  = $ChkHibernacao.IsChecked;       Sap  = $ChkSmartApp.IsChecked
+        Perf = $ChkUltimatePerf.IsChecked;     Dark = $ChkDarkTheme.IsChecked
+        Wgt  = $ChkWidgets.IsChecked;          Vrb  = $ChkVerboseLogon.IsChecked
+    }
+    if (-not ($v.Values | Where-Object { $_ })) { Write-Log "Nenhum tweak selecionado." "AVISO"; return }
     Invoke-Async {
-        if ($H) { Invoke-TweakHibernacao }
-        if ($S) { Invoke-TweakSmartApp }
-        if ($D) { Invoke-TweakDrivers }
-    } -Vars @{ H = $h; S = $s; D = $d }
+        if ($V.Tel)  { Invoke-TweakTelemetria }
+        if ($V.Act)  { Invoke-TweakActivityHistory }
+        if ($V.Loc)  { Invoke-TweakLocationTracking }
+        if ($V.Ext)  { Invoke-TweakFileExtensions }
+        if ($V.Hid)  { Invoke-TweakHiddenFiles }
+        if ($V.Num)  { Invoke-TweakNumLock }
+        if ($V.End)  { Invoke-TweakEndTask }
+        if ($V.Svc)  { Invoke-TweakServices }
+        if ($V.Hib)  { Invoke-TweakHibernacao }
+        if ($V.Sap)  { Invoke-TweakSmartApp }
+        if ($V.Perf) { Invoke-TweakUltimatePerf }
+        if ($V.Dark) { Invoke-TweakDarkTheme }
+        if ($V.Wgt)  { Invoke-TweakWidgets }
+        if ($V.Vrb)  { Invoke-TweakVerboseLogon }
+        Write-Log "Todos os tweaks aplicados." "OK"
+    } -Vars @{ V = $v }
 })
 
 # --- Manutencao ---
