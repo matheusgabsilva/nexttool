@@ -485,12 +485,12 @@ function Invoke-ResetDNS {
 function Invoke-TestarConectividade {
     Write-Log "Testando conectividade..." "STEP"
     foreach ($target in @("8.8.8.8","1.1.1.1","google.com")) {
-        $ping = New-Object System.Net.NetworkInformation.Ping
         try {
-            $reply = $ping.Send($target, 3000)
-            if ($reply.Status -eq "Success") { Write-Log "Ping ${target}: $($reply.RoundtripTime)ms" "OK" }
-            else { Write-Log "Ping ${target}: $($reply.Status)" "ERRO" }
-        } catch { Write-Log "Ping ${target} falhou: $_" "ERRO" }
+            $result = Test-Connection -ComputerName $target -Count 1 -TimeoutSeconds 3 -ErrorAction Stop
+            Write-Log "Ping ${target}: $($result.Latency)ms" "OK"
+        } catch {
+            Write-Log "Ping ${target}: sem resposta" "ERRO"
+        }
     }
 }
 
@@ -748,11 +748,18 @@ function Invoke-Async {
           <TextBlock Text="  |  Ferramenta de TI" FontSize="11" Foreground="#5C6370" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-          <Button x:Name="BtnImport" Content="Importar" Padding="10,4" Margin="0,0,6,0"
-                  Background="#4B5263" Foreground="#ABB2BF" FontSize="11" FontWeight="Normal"/>
-          <Button x:Name="BtnExport" Content="Exportar" Padding="10,4" Margin="0,0,16,0"
-                  Background="#4B5263" Foreground="#ABB2BF" FontSize="11" FontWeight="Normal"/>
-          <TextBlock x:Name="TxtSysInfo" Foreground="#5C6370" FontSize="11" VerticalAlignment="Center"/>
+          <Button x:Name="BtnGear" Content="⚙" Padding="10,5"
+                  Background="#4B5263" Foreground="#ABB2BF" FontSize="15" FontWeight="Normal"
+                  ToolTip="Importar / Exportar perfil">
+            <Button.ContextMenu>
+              <ContextMenu Background="#21252B" BorderBrush="#3E4451">
+                <MenuItem x:Name="MenuImport" Header="  Importar perfil (.json)"
+                          Foreground="#ABB2BF" Background="#21252B"/>
+                <MenuItem x:Name="MenuExport" Header="  Exportar perfil (.json)"
+                          Foreground="#ABB2BF" Background="#21252B"/>
+              </ContextMenu>
+            </Button.ContextMenu>
+          </Button>
         </StackPanel>
       </Grid>
     </Border>
@@ -1055,8 +1062,9 @@ $SiRAM                   = $Window.FindName("SiRAM")
 $SiSec                   = $Window.FindName("SiSec")
 $SiDisk                  = $Window.FindName("SiDisk")
 $SiUptime                = $Window.FindName("SiUptime")
-$BtnImport               = $Window.FindName("BtnImport")
-$BtnExport               = $Window.FindName("BtnExport")
+$BtnGear                 = $Window.FindName("BtnGear")
+$MenuImport              = $BtnGear.ContextMenu.Items | Where-Object { $_.Name -eq "MenuImport" }
+$MenuExport              = $BtnGear.ContextMenu.Items | Where-Object { $_.Name -eq "MenuExport" }
 $BtnPresetNext           = $Window.FindName("BtnPresetNext")
 $BtnPresetLimpar         = $Window.FindName("BtnPresetLimpar")
 $ChkTelemetria           = $Window.FindName("ChkTelemetria")
@@ -1127,9 +1135,6 @@ try {
     $ramT = [math]::Round($cs.TotalPhysicalMemory / 1GB, 1)
     $ramF = [math]::Round($os.FreePhysicalMemory / 1MB, 1)
     $ramU = [math]::Round($ramT - $ramF, 1)
-
-    # Header compacto
-    $TxtSysInfo.Text = "$env:COMPUTERNAME  |  $($os.Caption -replace 'Microsoft Windows ','Win ')  |  RAM: ${ramT}GB  |  $env:USERNAME @ $($cs.Domain)"
 
     # Painel detalhado
     $SiPC.Text   = $env:COMPUTERNAME
@@ -1297,8 +1302,14 @@ $BtnJoinDomain.Add_Click({
     } -Vars @{ Dom = $dom; Usr = $usr; Pass = $pass; Name = $name }
 })
 
-# --- Import / Export ---
-$BtnExport.Add_Click({
+# --- Gear / Import / Export ---
+$BtnGear.Add_Click({
+    $BtnGear.ContextMenu.PlacementTarget = $BtnGear
+    $BtnGear.ContextMenu.Placement = "Bottom"
+    $BtnGear.ContextMenu.IsOpen = $true
+})
+
+$MenuExport.Add_Click({
     $tweaks = [ordered]@{
         Telemetria       = [bool]$ChkTelemetria.IsChecked
         ActivityHistory  = [bool]$ChkActivityHistory.IsChecked
@@ -1325,7 +1336,7 @@ $BtnExport.Add_Click({
     Export-Config -State @{ Tweaks = $tweaks; Apps = $apps }
 })
 
-$BtnImport.Add_Click({
+$MenuImport.Add_Click({
     $cfg = Import-Config
     if (-not $cfg) { return }
 
