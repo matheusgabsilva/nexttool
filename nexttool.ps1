@@ -70,7 +70,11 @@ function Write-Log {
 # ================================================================
 # WINGET
 # ================================================================
-function Test-Winget { return ($null -ne (Get-Command winget -ErrorAction SilentlyContinue)) }
+function Test-Winget {
+    if (Get-Command winget -ErrorAction SilentlyContinue) { return $true }
+    $wingetPath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
+    return (Test-Path $wingetPath)
+}
 
 function Install-Winget {
     Write-Log "Instalando winget (App Installer)..." "STEP"
@@ -87,11 +91,14 @@ function Install-Winget {
 function Install-WingetApp {
     param([string]$Id, [string]$Name)
     Write-Log "Instalando $Name..." "STEP"
-    $result = winget install --id $Id -e --accept-source-agreements --accept-package-agreements --silent 2>&1
-    if ($LASTEXITCODE -eq 0 -or $result -match "instalado|already installed|No applicable") {
+    $result = winget install --id $Id -e --accept-source-agreements --accept-package-agreements --silent 2>&1 | Out-String
+    Write-Log $result.Trim() "PLAIN"
+    if ($result -match "Successfully installed|Instalado com exito|already installed|Ja instalado|No applicable|nenhum pacote|installiert erfolgreich") {
         Write-Log "$Name instalado com sucesso." "OK"
+    } elseif ($result -match "failed|falhou|erro|error|nao foi possivel") {
+        Write-Log "Falha ao instalar $Name." "ERRO"
     } else {
-        Write-Log "Falha ao instalar $Name (codigo: $LASTEXITCODE)." "ERRO"
+        Write-Log "$Name — instalacao concluida." "OK"
     }
 }
 
