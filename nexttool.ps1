@@ -486,8 +486,13 @@ function Invoke-TestarConectividade {
     Write-Log "Testando conectividade..." "STEP"
     foreach ($target in @("8.8.8.8","1.1.1.1","google.com")) {
         try {
-            $result = Test-Connection -ComputerName $target -Count 1 -TimeoutSeconds 3 -ErrorAction Stop
-            Write-Log "Ping ${target}: $($result.Latency)ms" "OK"
+            $ping  = New-Object System.Net.NetworkInformation.Ping
+            $reply = $ping.Send($target, 2000)
+            if ($reply.Status -eq [System.Net.NetworkInformation.IPStatus]::Success) {
+                Write-Log "Ping ${target}: $($reply.RoundtripTime)ms" "OK"
+            } else {
+                Write-Log "Ping ${target}: $($reply.Status)" "ERRO"
+            }
         } catch {
             Write-Log "Ping ${target}: sem resposta" "ERRO"
         }
