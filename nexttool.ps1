@@ -103,7 +103,15 @@ function Install-WingetApp {
 
         $out = ((Get-Content $tmpOut -Raw -ErrorAction SilentlyContinue) +
                 (Get-Content $tmpErr -Raw -ErrorAction SilentlyContinue)).Trim()
-        if ($out) { Write-Log $out "PLAIN" }
+        if ($out) {
+            $out -split "`n" | ForEach-Object {
+                $line = $_.Trim()
+                # ignora linhas de barra de progresso do winget
+                if ($line -and $line -notmatch "^[-='\\\|/ ]{4,}$" -and $line -notmatch "^\s*[\\/|]\s*$") {
+                    Write-Log $line "PLAIN"
+                }
+            }
+        }
 
         # 0 = sucesso | -1978335189 = ja instalado
         if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq -1978335189) {
