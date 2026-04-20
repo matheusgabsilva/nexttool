@@ -729,7 +729,7 @@ function Invoke-Async {
     <Grid.RowDefinitions>
       <RowDefinition Height="54"/>
       <RowDefinition Height="*"/>
-      <RowDefinition Height="180"/>
+      <RowDefinition Height="250"/>
     </Grid.RowDefinitions>
 
     <!-- ============================================================ -->
@@ -768,6 +768,42 @@ function Invoke-Async {
       <TabItem Header="  Instalações  ">
         <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#21252B">
           <StackPanel Margin="24,18">
+
+            <!-- PAINEL SYSINFO -->
+            <Border Background="#1E2128" CornerRadius="4" Margin="0,0,0,18" Padding="14,12">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                  <TextBlock Text="COMPUTADOR" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock x:Name="SiPC"     Foreground="#ABB2BF" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                  <TextBlock Text="WINDOWS"    Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock x:Name="SiOS"     Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                  <TextBlock Text="DOMÍNIO / USUÁRIO" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock x:Name="SiUser"   Foreground="#ABB2BF" FontSize="11"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                  <TextBlock Text="PROCESSADOR" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock x:Name="SiCPU"    Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                  <TextBlock Text="MEMÓRIA RAM" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock x:Name="SiRAM"    Foreground="#ABB2BF" FontSize="11" Margin="0,0,0,8"/>
+                  <TextBlock Text="SEGURANÇA"   Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock x:Name="SiSec"    Foreground="#ABB2BF" FontSize="11"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                  <TextBlock Text="ARMAZENAMENTO" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock x:Name="SiDisk"   Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                  <TextBlock Text="UPTIME"      Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock x:Name="SiUptime" Foreground="#ABB2BF" FontSize="11"/>
+                </StackPanel>
+              </Grid>
+            </Border>
 
             <Button x:Name="BtnPadraoNext"
                     Content="  ⚡  Instalar Padrão Next  —  Chrome · WinRAR · Adobe Reader · AnyDesk · TeamViewer  "
@@ -966,7 +1002,7 @@ function Invoke-Async {
     <!-- ============================================================ -->
     <!-- LOG PANEL                                                     -->
     <!-- ============================================================ -->
-    <Grid Grid.Row="2" Background="#1E2128">
+    <Grid Grid.Row="2" Background="#1E2128" MinHeight="240">
       <Grid.RowDefinitions>
         <RowDefinition Height="26"/>
         <RowDefinition Height="*"/>
@@ -1011,6 +1047,14 @@ $BtnInstalarSelecionados = $Window.FindName("BtnInstalarSelecionados")
 $BtnO365                 = $Window.FindName("BtnO365")
 $BtnO2021                = $Window.FindName("BtnO2021")
 $BtnO2016                = $Window.FindName("BtnO2016")
+$SiPC                    = $Window.FindName("SiPC")
+$SiOS                    = $Window.FindName("SiOS")
+$SiUser                  = $Window.FindName("SiUser")
+$SiCPU                   = $Window.FindName("SiCPU")
+$SiRAM                   = $Window.FindName("SiRAM")
+$SiSec                   = $Window.FindName("SiSec")
+$SiDisk                  = $Window.FindName("SiDisk")
+$SiUptime                = $Window.FindName("SiUptime")
 $BtnImport               = $Window.FindName("BtnImport")
 $BtnExport               = $Window.FindName("BtnExport")
 $BtnPresetNext           = $Window.FindName("BtnPresetNext")
@@ -1074,13 +1118,50 @@ $LogTimer.Add_Tick({
 $LogTimer.Start()
 
 # ================================================================
-# SYSINFO NO HEADER
+# SYSINFO — HEADER + PAINEL DA ABA INSTALACOES
 # ================================================================
 try {
-    $cs  = Get-CimInstance Win32_ComputerSystem
-    $os  = Get-CimInstance Win32_OperatingSystem
-    $ram = [math]::Round($cs.TotalPhysicalMemory / 1GB, 1)
-    $TxtSysInfo.Text = "$env:COMPUTERNAME  |  $($os.Caption -replace 'Microsoft Windows ','Win ')  |  RAM: ${ram}GB  |  $env:USERNAME @ $($cs.Domain)"
+    $cs   = Get-CimInstance Win32_ComputerSystem
+    $os   = Get-CimInstance Win32_OperatingSystem
+    $cpu  = (Get-CimInstance Win32_Processor | Select-Object -First 1).Name -replace '\s{2,}',' '
+    $ramT = [math]::Round($cs.TotalPhysicalMemory / 1GB, 1)
+    $ramF = [math]::Round($os.FreePhysicalMemory / 1MB, 1)
+    $ramU = [math]::Round($ramT - $ramF, 1)
+
+    # Header compacto
+    $TxtSysInfo.Text = "$env:COMPUTERNAME  |  $($os.Caption -replace 'Microsoft Windows ','Win ')  |  RAM: ${ramT}GB  |  $env:USERNAME @ $($cs.Domain)"
+
+    # Painel detalhado
+    $SiPC.Text   = $env:COMPUTERNAME
+    $SiOS.Text   = "$($os.Caption -replace 'Microsoft ','')  (Build $($os.BuildNumber))"
+    $SiUser.Text = "$env:USERNAME  @  $($cs.Domain)"
+    $SiCPU.Text  = $cpu
+    $SiRAM.Text  = "Total: ${ramT} GB     Usada: ${ramU} GB     Livre: ${ramF} GB"
+
+    # Discos
+    $discos = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -gt 0 } | ForEach-Object {
+        $t = [math]::Round(($_.Used + $_.Free) / 1GB, 1)
+        $f = [math]::Round($_.Free / 1GB, 1)
+        "$($_.Name):  ${t}GB total  |  ${f}GB livre"
+    }
+    $SiDisk.Text = ($discos -join "`n")
+
+    # Segurança
+    $defStatus = "Defender: ?"
+    try {
+        $def = Get-MpComputerStatus -ErrorAction Stop
+        $defStatus = if ($def.AntivirusEnabled) { "Defender: ATIVO" } else { "Defender: INATIVO" }
+    } catch {}
+    $fwOut    = netsh advfirewall show allprofiles state 2>&1 | Out-String
+    $fwCount  = ([regex]::Matches($fwOut, "(?i)State\s+ON")).Count
+    $fwStatus = "Firewall: $fwCount perfil(is) ativo(s)"
+    $SiSec.Text = "$defStatus`n$fwStatus"
+
+    # Uptime
+    $boot   = $os.LastBootUpTime
+    $uptime = (Get-Date) - $boot
+    $SiUptime.Text = "$($uptime.Days)d $($uptime.Hours)h $($uptime.Minutes)m  (boot: $($boot.ToString('dd/MM HH:mm')))"
+
 } catch {}
 
 # ================================================================
