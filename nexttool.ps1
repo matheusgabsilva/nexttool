@@ -113,8 +113,10 @@ function Install-WingetApp {
             }
         }
 
-        # 0 = sucesso | -1978335189 = ja instalado
-        if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq -1978335189) {
+        # Detecta sucesso por exit code OU por palavras-chave no output
+        $exitOk  = $proc.ExitCode -eq 0 -or $proc.ExitCode -eq -1978335189
+        $ouputOk = $out -match "instalado com sucesso|successfully installed|installation success|install complete|ja instalado|already installed"
+        if ($exitOk -or $ouputOk) {
             Write-Log "$Name instalado com sucesso." "OK"
         } else {
             Write-Log "Falha ao instalar $Name (codigo: $($proc.ExitCode))." "ERRO"
