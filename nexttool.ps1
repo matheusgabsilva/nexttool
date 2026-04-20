@@ -668,6 +668,7 @@ function Invoke-Async {
               <Button x:Name="BtnDiagnostico" Content="Diagnostico"      Width="155" Height="62" Margin="0,0,10,10"/>
               <Button x:Name="BtnSfcDism"     Content="SFC + DISM"       Width="155" Height="62" Margin="0,0,10,10"/>
               <Button x:Name="BtnFlushDns"    Content="Flush DNS"        Width="155" Height="62" Margin="0,0,10,10"/>
+              <Button x:Name="BtnAtualizarDrivers" Content="Atualizar Drivers" Width="155" Height="62" Margin="0,0,10,10"/>
               <Button x:Name="BtnRelatorio"   Content="Abrir Relatorios" Width="155" Height="62"
                       Background="#4B5263" Foreground="#ABB2BF"/>
             </WrapPanel>
@@ -792,6 +793,7 @@ $ChkHibernacao           = $Window.FindName("ChkHibernacao")
 $ChkSmartApp             = $Window.FindName("ChkSmartApp")
 $ChkDrivers              = $Window.FindName("ChkDrivers")
 $BtnAplicarTweaks        = $Window.FindName("BtnAplicarTweaks")
+$BtnAtualizarDrivers     = $Window.FindName("BtnAtualizarDrivers")
 $BtnOtimizar             = $Window.FindName("BtnOtimizar")
 $BtnDiagnostico          = $Window.FindName("BtnDiagnostico")
 $BtnSfcDism              = $Window.FindName("BtnSfcDism")
@@ -890,6 +892,7 @@ $BtnAplicarTweaks.Add_Click({
 })
 
 # --- Manutencao ---
+$BtnAtualizarDrivers.Add_Click({ Invoke-Async { Invoke-TweakDrivers } })
 $BtnOtimizar.Add_Click({    Invoke-Async { Invoke-OtimizarPC } })
 $BtnDiagnostico.Add_Click({ Invoke-Async { Invoke-Diagnostico } })
 $BtnSfcDism.Add_Click({     Invoke-Async { Invoke-SFCDISM } })
