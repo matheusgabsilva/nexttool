@@ -185,32 +185,46 @@ function Invoke-TweakSmartApp {
 }
 
 function Invoke-TweakDrivers {
-    Write-Log "Verificando PSWindowsUpdate..." "STEP"
+    # Etapa 1: Windows Update
+    Write-Log "=== ETAPA 1 — Windows Update (drivers) ===" "STEP"
     if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
         Write-Log "Instalando PSWindowsUpdate..." "INFO"
         try {
             Install-Module PSWindowsUpdate -Force -Confirm:$false -ErrorAction Stop
             Write-Log "Modulo instalado." "OK"
         } catch {
-            Write-Log "Falha ao instalar modulo: $_" "ERRO"
-            return
+            Write-Log "Falha ao instalar PSWindowsUpdate: $_" "ERRO"
         }
     }
-    Import-Module PSWindowsUpdate -Force
-    Write-Log "Buscando atualizacoes de drivers..." "INFO"
     try {
+        Import-Module PSWindowsUpdate -Force
         $updates = Get-WindowsUpdate -Category Drivers -ErrorAction Stop
         if ($updates.Count -eq 0) {
-            Write-Log "Drivers em dia." "OK"
+            Write-Log "Windows Update: nenhum driver pendente." "OK"
         } else {
-            Write-Log "$($updates.Count) driver(s) encontrado(s). Instalando..." "INFO"
+            Write-Log "$($updates.Count) driver(s) encontrado(s) no Windows Update. Instalando..." "INFO"
             $updates | ForEach-Object { Write-Log " - $($_.Title)" "PLAIN" }
             Install-WindowsUpdate -Category Drivers -AcceptAll -IgnoreReboot -Verbose 2>&1 |
                 ForEach-Object { Write-Log $_ "PLAIN" }
-            Write-Log "Drivers atualizados. Reinicie para aplicar." "OK"
+            Write-Log "Windows Update: drivers instalados. Reinicie para aplicar." "OK"
         }
     } catch {
-        Write-Log "Erro ao buscar drivers: $_" "ERRO"
+        Write-Log "Erro no Windows Update: $_" "ERRO"
+    }
+
+    # Etapa 2: winget upgrade --all
+    Write-Log "=== ETAPA 2 — winget upgrade (todos os pacotes) ===" "STEP"
+    if (-not (Test-Winget)) {
+        Write-Log "winget nao encontrado, pulando etapa 2." "AVISO"
+        return
+    }
+    try {
+        Write-Log "Executando winget upgrade --all (aguarde)..." "INFO"
+        winget upgrade --all --silent --accept-source-agreements --accept-package-agreements 2>&1 |
+            ForEach-Object { if ($_.Trim()) { Write-Log $_ "PLAIN" } }
+        Write-Log "winget upgrade concluido." "OK"
+    } catch {
+        Write-Log "Erro no winget upgrade: $_" "ERRO"
     }
 }
 
