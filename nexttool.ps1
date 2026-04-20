@@ -487,9 +487,8 @@ function Invoke-TestarConectividade {
     foreach ($target in @("8.8.8.8","1.1.1.1","google.com")) {
         try {
             $out = & ping.exe -n 1 -w 2000 $target 2>&1 | Out-String
-            if ($out -match "tempo[<=]\s*(\d+)\s*ms|time[<=]\s*(\d+)\s*ms") {
-                $ms = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
-                Write-Log "Ping ${target}: ${ms}ms" "OK"
+            if ($out -match "[<=](\d+)\s*ms") {
+                Write-Log "Ping ${target}: $($Matches[1])ms" "OK"
             } else {
                 Write-Log "Ping ${target}: sem resposta" "ERRO"
             }
