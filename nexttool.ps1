@@ -104,10 +104,14 @@ function Install-Winget {
         $tmp = "$env:TEMP\AppInstaller.msixbundle"
         Invoke-WebRequest -Uri "https://aka.ms/getwinget" -OutFile $tmp -UseBasicParsing
         Add-AppxPackage -Path $tmp
-        # Atualiza PATH da sessao atual para que winget seja encontrado imediatamente
+        # Atualiza PATH da sessao atual
         $wingetDir = "$env:LOCALAPPDATA\Microsoft\WindowsApps"
-        if ($env:PATH -notlike "*$wingetDir*") {
-            $env:PATH = "$env:PATH;$wingetDir"
+        if ($env:PATH -notlike "*$wingetDir*") { $env:PATH = "$env:PATH;$wingetDir" }
+        # Aguarda registro do AppX (pode demorar alguns segundos)
+        $waited = 0
+        while ($waited -lt 15) {
+            if (Test-Path "$wingetDir\winget.exe") { break }
+            Start-Sleep -Seconds 2; $waited += 2
         }
         Write-Log "winget instalado." "OK"
     } catch {
@@ -152,65 +156,48 @@ $script:AppCatalog = @{
 function Resolve-AdobeReaderUrl {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-    # Metodo 1: API RDC da Adobe (usada pelo proprio Reader para checar atualizacoes)
+    # Metodo 1: manifesto do winget-pkgs no GitHub (repositorio oficial Microsoft, sempre atualizado)
     try {
-        $api = Invoke-WebRequest `
-            -Uri "https://rdc.adobe.io/reader/products?os=Windows&os_version=10&product=readerdc&platform=Windows&mode=win" `
-            -UseBasicParsing -ErrorAction Stop
-        $json = $api.Content | ConvertFrom-Json
-        # Pega o produto principal (nao patch)
-        $prod = $json.products | Where-Object { $_.name -match 'Reader' -and $_.installerType -eq 'Full' } |
-            Select-Object -First 1
-        if (-not $prod) { $prod = $json.products | Select-Object -First 1 }
-        if ($prod.installerLink) {
-            Write-Log "Adobe Reader versao via RDC API: $($prod.productVersion)" "INFO"
-            return $prod.installerLink
-        }
-    } catch {
-        Write-Log "RDC API Adobe falhou: $_" "AVISO"
-    }
-
-    # Metodo 2: API publica do Evergreen (stealthpuppy)
-    try {
-        $api2 = Invoke-WebRequest -Uri "https://evergreen-api.stealthpuppy.com/app/AdobeAcrobatReaderDC" `
-            -UseBasicParsing -ErrorAction Stop
-        $json2 = $api2.Content | ConvertFrom-Json
-        $entry = $json2 | Where-Object { $_.Architecture -eq "x64" -and $_.Language -eq "MUI" } |
-            Select-Object -First 1
-        if (-not $entry) { $entry = $json2 | Where-Object { $_.Language -eq "MUI" } | Select-Object -First 1 }
-        if (-not $entry) { $entry = $json2 | Select-Object -First 1 }
-        if ($entry.URI) {
-            Write-Log "Adobe Reader versao via Evergreen: $($entry.Version)" "INFO"
-            return $entry.URI
-        }
-    } catch {
-        Write-Log "Evergreen API Adobe falhou: $_" "AVISO"
-    }
-
-    # Metodo 3: manifesto do winget no GitHub (sempre atualizado)
-    try {
-        $ghApi = Invoke-WebRequest `
+        $headers = @{ "User-Agent" = "NextTool/3.0"; "Accept" = "application/vnd.github.v3+json" }
+        $ghList = (Invoke-WebRequest `
             -Uri "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/a/Adobe/Acrobat/Reader/64-bit" `
-            -UseBasicParsing -Headers @{ "User-Agent" = "NextTool" } -ErrorAction Stop
-        $versions = ($ghApi.Content | ConvertFrom-Json) | Where-Object { $_.type -eq "dir" } |
-            Sort-Object name | Select-Object -Last 1
-        if ($versions) {
-            $installerApi = Invoke-WebRequest `
-                -Uri "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/a/Adobe/Acrobat/Reader/64-bit/$($versions.name)" `
-                -UseBasicParsing -Headers @{ "User-Agent" = "NextTool" } -ErrorAction Stop
-            $installerFile = ($installerApi.Content | ConvertFrom-Json) |
-                Where-Object { $_.name -match '\.installer\.yaml' } | Select-Object -First 1
-            if ($installerFile) {
-                $yaml = (Invoke-WebRequest -Uri $installerFile.download_url -UseBasicParsing).Content
-                $m = [regex]::Match($yaml, 'InstallerUrl:\s*(https://\S+\.exe)')
+            -UseBasicParsing -Headers $headers -ErrorAction Stop).Content | ConvertFrom-Json
+        $latestDir = $ghList | Where-Object { $_.type -eq "dir" } | Sort-Object name | Select-Object -Last 1
+        if ($latestDir) {
+            $dirContents = (Invoke-WebRequest `
+                -Uri $latestDir.url `
+                -UseBasicParsing -Headers $headers -ErrorAction Stop).Content | ConvertFrom-Json
+            $installerYaml = $dirContents | Where-Object { $_.name -match '\.installer\.yaml$' } | Select-Object -First 1
+            if ($installerYaml) {
+                $yaml = (Invoke-WebRequest -Uri $installerYaml.download_url -UseBasicParsing -Headers $headers).Content
+                # Pega URL do instalador x64 (procura bloco Architecture: x64 seguido de InstallerUrl)
+                $m = [regex]::Match($yaml, '(?ms)Architecture:\s*x64.*?InstallerUrl:\s*(https://\S+\.exe)')
+                if (-not $m.Success) {
+                    $m = [regex]::Match($yaml, 'InstallerUrl:\s*(https://\S+\.exe)')
+                }
                 if ($m.Success) {
-                    Write-Log "Adobe Reader versao via winget manifest: $($versions.name)" "INFO"
+                    Write-Log "Adobe Reader versao via winget manifest: $($latestDir.name)" "INFO"
                     return $m.Groups[1].Value
                 }
             }
         }
     } catch {
         Write-Log "winget manifest Adobe falhou: $_" "AVISO"
+    }
+
+    # Metodo 2: Evergreen API (stealthpuppy)
+    try {
+        $ev = (Invoke-WebRequest -Uri "https://evergreen-api.stealthpuppy.com/app/AdobeAcrobatReaderDC" `
+            -UseBasicParsing -ErrorAction Stop).Content | ConvertFrom-Json
+        $entry = $ev | Where-Object { $_.Architecture -eq "x64" -and $_.Language -eq "MUI" } | Select-Object -First 1
+        if (-not $entry) { $entry = $ev | Where-Object { $_.Language -eq "MUI" } | Select-Object -First 1 }
+        if (-not $entry) { $entry = $ev | Select-Object -First 1 }
+        if ($entry.URI) {
+            Write-Log "Adobe Reader versao via Evergreen: $($entry.Version)" "INFO"
+            return $entry.URI
+        }
+    } catch {
+        Write-Log "Evergreen API Adobe falhou: $_" "AVISO"
     }
 
     return $null
