@@ -106,7 +106,7 @@ $script:AppCatalog = @{
     }
     "Adobe.Acrobat.Reader.64-bit" = @{
         Nome     = "Adobe Acrobat Reader"
-        Url      = "https://ardownload2.adobe.com/pub/adobe/acrobat/win/AcroRdrDC/2400120220/AcroRdrDC2400120220_MUI.exe"
+        Url      = ""   # URL resolvida dinamicamente via Evergreen API
         Ext      = "exe"
         InstArgs = "/sAll /rs /msi EULA_ACCEPT=YES"
     }
@@ -114,7 +114,7 @@ $script:AppCatalog = @{
         Nome     = "AnyDesk"
         Url      = "https://download.anydesk.com/AnyDesk.exe"
         Ext      = "exe"
-        InstArgs = "--install --start-with-win --create-desktop-icon --create-taskbar-entry --silent"
+        InstArgs = "--silent"
     }
     "TeamViewer.TeamViewer" = @{
         Nome     = "TeamViewer"
@@ -124,8 +124,36 @@ $script:AppCatalog = @{
     }
 }
 
+function Resolve-AdobeReaderUrl {
+    # Usa Evergreen API (stealthpuppy) para obter URL atual do Adobe Reader MUI
+    try {
+        $api = Invoke-WebRequest -Uri "https://evergreen-api.stealthpuppy.com/app/AdobeAcrobatReaderDC-MUI/uri" `
+            -UseBasicParsing -ErrorAction Stop
+        $json = $api.Content | ConvertFrom-Json
+        # Retorna URL da versao 64-bit se disponivel, senao a primeira
+        $entry = $json | Where-Object { $_.Architecture -eq "x64" } | Select-Object -First 1
+        if (-not $entry) { $entry = $json | Select-Object -First 1 }
+        return $entry.URI
+    } catch {
+        Write-Log "Evergreen API falhou: $_" "AVISO"
+        return $null
+    }
+}
+
 function Install-DirectApp {
     param([string]$Nome, [string]$Url, [string]$Ext, [string]$InstArgs)
+    # Resolve URL dinamica se necessario (ex: Adobe Reader)
+    if (-not $Url -or $Url -eq "") {
+        Write-Log "Resolvendo URL atual de $Nome..." "INFO"
+        if ($Nome -match "Adobe") {
+            $Url = Resolve-AdobeReaderUrl
+        }
+        if (-not $Url) {
+            Write-Log "Nao foi possivel obter URL de download para $Nome." "ERRO"
+            return
+        }
+        Write-Log "URL: $Url" "INFO"
+    }
     Write-Log "Download direto: $Nome..." "AVISO"
     $tmp = "$env:TEMP\nexttool_install.$Ext"
     try {
@@ -251,9 +279,14 @@ function Install-Office {
     $odtExe = "$odtDir\setup.exe"
     Write-Log "Baixando Office Deployment Tool..." "INFO"
     try {
-        Invoke-WebRequest -Uri "https://download.microsoft.com/download/2/7/A/27AF1BE6-DD20-4CB4-B154-EBAB8A7D4A7E/officedeploymenttool_17928-20114.exe" `
-            -OutFile "$odtDir\odt.exe" -UseBasicParsing
-        Start-Process "$odtDir\odt.exe" -ArgumentList "/quiet /extract:$odtDir" -Wait
+        # Obtém URL atual do ODT via página de download da Microsoft
+        $odtPage = Invoke-WebRequest -Uri "https://www.microsoft.com/en-us/download/confirmation.aspx?id=49117" `
+            -UseBasicParsing -MaximumRedirection 5 -ErrorAction Stop
+        $odtUrl  = ($odtPage.Links | Where-Object { $_.href -match "officedeploymenttool.*\.exe" } | Select-Object -First 1).href
+        if (-not $odtUrl) { throw "URL do ODT nao encontrada na pagina Microsoft." }
+        Write-Log "URL ODT: $odtUrl" "INFO"
+        Invoke-WebRequest -Uri $odtUrl -OutFile "$odtDir\odt.exe" -UseBasicParsing -ErrorAction Stop
+        Start-Process "$odtDir\odt.exe" -ArgumentList "/quiet /extract:`"$odtDir`"" -Wait
         Write-Log "ODT extraido." "OK"
     } catch {
         Write-Log "Falha ao baixar/extrair ODT: $_" "ERRO"
@@ -767,7 +800,7 @@ function Import-Config {
 # ================================================================
 $script:FuncNames = @(
     'Write-Log','Test-Winget','Install-Winget','Install-WingetApp',
-    'Install-Office','Install-PadraoNext','Install-DirectApp',
+    'Install-Office','Install-PadraoNext','Install-DirectApp','Resolve-AdobeReaderUrl',
     'Invoke-TweakHibernacao','Invoke-TweakSmartApp','Invoke-TweakDrivers',
     'Invoke-TweakTelemetria','Invoke-TweakActivityHistory','Invoke-TweakLocationTracking',
     'Invoke-TweakFileExtensions','Invoke-TweakHiddenFiles','Invoke-TweakNumLock',
