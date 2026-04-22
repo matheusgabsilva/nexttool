@@ -74,16 +74,41 @@ function Write-Log {
 # ================================================================
 function Test-Winget {
     if (Get-Command winget -ErrorAction SilentlyContinue) { return $true }
-    $wingetPath = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
-    return (Test-Path $wingetPath)
+    # Caminhos conhecidos do winget
+    $paths = @(
+        "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe",
+        "$env:ProgramFiles\WindowsApps\Microsoft.DesktopAppInstaller_*\winget.exe"
+    )
+    foreach ($p in $paths) {
+        $found = Resolve-Path $p -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($found) { return $true }
+    }
+    return $false
+}
+
+function Get-WingetExe {
+    # Retorna caminho completo para winget.exe
+    $cmd = Get-Command winget -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    $wa = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
+    if (Test-Path $wa) { return $wa }
+    $glob = Resolve-Path "$env:ProgramFiles\WindowsApps\Microsoft.DesktopAppInstaller_*\winget.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($glob) { return $glob.Path }
+    return "winget"
 }
 
 function Install-Winget {
     Write-Log "Instalando winget (App Installer)..." "STEP"
     try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         $tmp = "$env:TEMP\AppInstaller.msixbundle"
         Invoke-WebRequest -Uri "https://aka.ms/getwinget" -OutFile $tmp -UseBasicParsing
         Add-AppxPackage -Path $tmp
+        # Atualiza PATH da sessao atual para que winget seja encontrado imediatamente
+        $wingetDir = "$env:LOCALAPPDATA\Microsoft\WindowsApps"
+        if ($env:PATH -notlike "*$wingetDir*") {
+            $env:PATH = "$env:PATH;$wingetDir"
+        }
         Write-Log "winget instalado." "OK"
     } catch {
         Write-Log "Falha ao instalar winget: $_" "ERRO"
@@ -114,7 +139,7 @@ $script:AppCatalog = @{
         Nome     = "AnyDesk"
         Url      = "https://download.anydesk.com/AnyDesk.exe"
         Ext      = "exe"
-        InstArgs = "--silent"
+        InstArgs = "--install `"$env:ProgramFiles\AnyDesk`" --start-with-win --create-desktop-icon --create-taskbar-entry --silent"
     }
     "TeamViewer.TeamViewer" = @{
         Nome     = "TeamViewer"
@@ -125,17 +150,22 @@ $script:AppCatalog = @{
 }
 
 function Resolve-AdobeReaderUrl {
-    # Usa Evergreen API (stealthpuppy) para obter URL atual do Adobe Reader MUI
+    # Descobre versao mais recente listando o diretorio FTP da Adobe
     try {
-        $api = Invoke-WebRequest -Uri "https://evergreen-api.stealthpuppy.com/app/AdobeAcrobatReaderDC-MUI/uri" `
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $index = Invoke-WebRequest -Uri "https://ardownload2.adobe.com/pub/adobe/acrobat/win/AcroRdrDC/" `
             -UseBasicParsing -ErrorAction Stop
-        $json = $api.Content | ConvertFrom-Json
-        # Retorna URL da versao 64-bit se disponivel, senao a primeira
-        $entry = $json | Where-Object { $_.Architecture -eq "x64" } | Select-Object -First 1
-        if (-not $entry) { $entry = $json | Select-Object -First 1 }
-        return $entry.URI
+        # Encontra a pasta com numero de versao mais alto (ex: 2500120432/)
+        $latestVer = ($index.Links |
+            Where-Object { $_.href -match '^\d{10,}/?$' } |
+            Sort-Object { [long]($_.href.TrimEnd('/')) } |
+            Select-Object -Last 1).href.TrimEnd('/')
+        if (-not $latestVer) { throw "Nenhuma versao encontrada no indice Adobe." }
+        $url = "https://ardownload2.adobe.com/pub/adobe/acrobat/win/AcroRdrDC/$latestVer/AcroRdrDC${latestVer}_MUI.exe"
+        Write-Log "Adobe Reader versao detectada: $latestVer" "INFO"
+        return $url
     } catch {
-        Write-Log "Evergreen API falhou: $_" "AVISO"
+        Write-Log "Falha ao resolver URL Adobe via FTP index: $_" "AVISO"
         return $null
     }
 }
@@ -188,7 +218,8 @@ function Install-WingetApp {
         $tmpOut = [System.IO.Path]::GetTempFileName()
         $tmpErr = [System.IO.Path]::GetTempFileName()
         try {
-            $proc = Start-Process -FilePath "winget" `
+            $wingetExe = Get-WingetExe
+            $proc = Start-Process -FilePath $wingetExe `
                 -ArgumentList "install --id $Id -e --accept-source-agreements --accept-package-agreements --silent" `
                 -Wait -PassThru -NoNewWindow `
                 -RedirectStandardOutput $tmpOut `
@@ -279,11 +310,44 @@ function Install-Office {
     $odtExe = "$odtDir\setup.exe"
     Write-Log "Baixando Office Deployment Tool..." "INFO"
     try {
-        # Obtém URL atual do ODT via página de download da Microsoft
-        $odtPage = Invoke-WebRequest -Uri "https://www.microsoft.com/en-us/download/confirmation.aspx?id=49117" `
-            -UseBasicParsing -MaximumRedirection 5 -ErrorAction Stop
-        $odtUrl  = ($odtPage.Links | Where-Object { $_.href -match "officedeploymenttool.*\.exe" } | Select-Object -First 1).href
-        if (-not $odtUrl) { throw "URL do ODT nao encontrada na pagina Microsoft." }
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        # Tenta obter URL atual do ODT via pagina de confirmacao Microsoft (regex no HTML)
+        $odtUrl = $null
+        try {
+            $odtPage = Invoke-WebRequest -Uri "https://www.microsoft.com/en-us/download/confirmation.aspx?id=49117" `
+                -UseBasicParsing -MaximumRedirection 5 -ErrorAction Stop
+            $m = [regex]::Match($odtPage.Content, '"(https://download\.microsoft\.com[^"]+officedeploymenttool[^"]*\.exe)"')
+            if ($m.Success) { $odtUrl = $m.Groups[1].Value }
+        } catch { }
+
+        # Fallback: tenta via winget se pagina nao retornou URL
+        if (-not $odtUrl) {
+            Write-Log "Pagina Microsoft nao retornou URL direta. Tentando winget..." "AVISO"
+            if (Test-Winget) {
+                $tmpOut = [System.IO.Path]::GetTempFileName()
+                Start-Process "winget" -ArgumentList "install --id Microsoft.OfficeDeploymentTool -e --accept-source-agreements --accept-package-agreements --silent" `
+                    -Wait -PassThru -NoNewWindow -RedirectStandardOutput $tmpOut | Out-Null
+                Remove-Item $tmpOut -ErrorAction SilentlyContinue
+                # setup.exe fica em Program Files\ODT apos instalacao via winget
+                $odtFromWinget = "${env:ProgramFiles(x86)}\Microsoft Office\ODT\setup.exe"
+                if (-not (Test-Path $odtFromWinget)) {
+                    $odtFromWinget = "$env:ProgramFiles\Microsoft Office\ODT\setup.exe"
+                }
+                if (Test-Path $odtFromWinget) {
+                    Write-Log "ODT obtido via winget." "OK"
+                    $odtExe = $odtFromWinget
+                    # Pula o bloco de download/extracao
+                    $xmlPath = "$odtDir\config_$Version.xml"
+                    $OfficeXML[$Version] | Out-File -FilePath $xmlPath -Encoding UTF8
+                    Write-Log "Iniciando Office $Version (pode demorar varios minutos)..." "STEP"
+                    Start-Process $odtExe -ArgumentList "/configure `"$xmlPath`"" -Wait
+                    Write-Log "Office $Version instalado." "OK"
+                    return
+                }
+            }
+            throw "Nao foi possivel obter o ODT (pagina Microsoft e winget falharam)."
+        }
+
         Write-Log "URL ODT: $odtUrl" "INFO"
         Invoke-WebRequest -Uri $odtUrl -OutFile "$odtDir\odt.exe" -UseBasicParsing -ErrorAction Stop
         Start-Process "$odtDir\odt.exe" -ArgumentList "/quiet /extract:`"$odtDir`"" -Wait
@@ -445,8 +509,16 @@ function Invoke-TweakDrivers {
     if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
         Write-Log "Instalando PSWindowsUpdate..." "INFO"
         try {
-            Install-Module PSWindowsUpdate -Force -Confirm:$false -ErrorAction Stop
-            Write-Log "Modulo instalado." "OK"
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            # Instala o provedor NuGet de forma nao-interativa (necessario em ambiente sem UI)
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope AllUsers -ErrorAction Stop | Out-Null
+            Write-Log "Provedor NuGet instalado." "OK"
+        } catch {
+            Write-Log "Aviso NuGet: $_" "AVISO"
+        }
+        try {
+            Install-Module PSWindowsUpdate -Force -Confirm:$false -Scope AllUsers -ErrorAction Stop
+            Write-Log "Modulo PSWindowsUpdate instalado." "OK"
         } catch {
             Write-Log "Falha ao instalar PSWindowsUpdate: $_" "ERRO"
         }
@@ -474,10 +546,16 @@ function Invoke-TweakDrivers {
         return
     }
     try {
+        $wingetExe = Get-WingetExe
         Write-Log "Executando winget upgrade --all (aguarde)..." "INFO"
-        winget upgrade --all --silent --accept-source-agreements --accept-package-agreements 2>&1 |
-            ForEach-Object { if ($_.Trim()) { Write-Log $_ "PLAIN" } }
-        Write-Log "winget upgrade concluido." "OK"
+        $tmpOut = [System.IO.Path]::GetTempFileName()
+        $proc = Start-Process -FilePath $wingetExe `
+            -ArgumentList "upgrade --all --silent --accept-source-agreements --accept-package-agreements" `
+            -Wait -PassThru -NoNewWindow -RedirectStandardOutput $tmpOut
+        $out = Get-Content $tmpOut -Raw -ErrorAction SilentlyContinue
+        Remove-Item $tmpOut -ErrorAction SilentlyContinue
+        if ($out) { $out -split "`n" | ForEach-Object { $l = $_.Trim(); if ($l) { Write-Log $l "PLAIN" } } }
+        Write-Log "winget upgrade concluido (codigo: $($proc.ExitCode))." "OK"
     } catch {
         Write-Log "Erro no winget upgrade: $_" "ERRO"
     }
@@ -799,7 +877,7 @@ function Import-Config {
 # ASYNC HELPER  — copia funcoes para o runspace e executa em background
 # ================================================================
 $script:FuncNames = @(
-    'Write-Log','Test-Winget','Install-Winget','Install-WingetApp',
+    'Write-Log','Test-Winget','Get-WingetExe','Install-Winget','Install-WingetApp',
     'Install-Office','Install-PadraoNext','Install-DirectApp','Resolve-AdobeReaderUrl',
     'Invoke-TweakHibernacao','Invoke-TweakSmartApp','Invoke-TweakDrivers',
     'Invoke-TweakTelemetria','Invoke-TweakActivityHistory','Invoke-TweakLocationTracking',
