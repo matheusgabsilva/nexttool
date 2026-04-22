@@ -36,7 +36,9 @@ $script:VERSION    = "3.0"
 $script:REPORT_DIR = "C:\Next-Relatorios"
 $script:SESSION_TS = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $script:LOG_FILE   = Join-Path $script:REPORT_DIR "nexttool_$($env:COMPUTERNAME)_$script:SESSION_TS.log"
-$script:LogQueue   = [System.Collections.Concurrent.ConcurrentQueue[object]]::new()
+$script:LogQueue      = [System.Collections.Concurrent.ConcurrentQueue[object]]::new()
+$script:FolderQueue   = [System.Collections.Concurrent.ConcurrentQueue[object]]::new()
+$script:FileQueue     = [System.Collections.Concurrent.ConcurrentQueue[object]]::new()
 
 if (-not (Test-Path $script:REPORT_DIR)) {
     New-Item -Path $script:REPORT_DIR -ItemType Directory -Force | Out-Null
@@ -661,6 +663,67 @@ function Invoke-JoinDomain {
 }
 
 # ================================================================
+# ARMAZENAMENTO
+# ================================================================
+function Format-Size {
+    param([long]$Bytes)
+    if ($Bytes -ge 1TB) { return "{0:N2} TB" -f ($Bytes / 1TB) }
+    if ($Bytes -ge 1GB) { return "{0:N2} GB" -f ($Bytes / 1GB) }
+    if ($Bytes -ge 1MB) { return "{0:N2} MB" -f ($Bytes / 1MB) }
+    if ($Bytes -ge 1KB) { return "{0:N2} KB" -f ($Bytes / 1KB) }
+    return "$Bytes B"
+}
+
+function Get-FolderSize {
+    param([string]$Path)
+    try {
+        $size = (Get-ChildItem $Path -Recurse -Force -ErrorAction SilentlyContinue |
+                 Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
+        return [long]($size)
+    } catch { return [long]0 }
+}
+
+function Invoke-AnalisarPasta {
+    param([string]$Path, [int]$MinMB = 50)
+    Write-Log "Analisando pasta: $Path ..." "STEP"
+
+    # Subpastas diretas com tamanho recursivo
+    Write-Log "Calculando tamanho das subpastas..." "INFO"
+    $subfolders = Get-ChildItem $Path -Directory -Force -ErrorAction SilentlyContinue
+    $folderResults = foreach ($f in $subfolders) {
+        $sz = Get-FolderSize -Path $f.FullName
+        [PSCustomObject]@{
+            Nome      = $f.Name
+            Tamanho   = Format-Size $sz
+            Bytes     = $sz
+            Caminho   = $f.FullName
+        }
+    }
+    $folderResults = @($folderResults | Sort-Object Bytes -Descending)
+    $FolderQueue.Enqueue($folderResults)
+    Write-Log "$($folderResults.Count) subpasta(s) encontrada(s)." "OK"
+
+    # Arquivos maiores que MinMB
+    Write-Log "Buscando arquivos acima de ${MinMB}MB..." "INFO"
+    $minBytes = $MinMB * 1MB
+    $fileResults = Get-ChildItem $Path -Recurse -Force -File -ErrorAction SilentlyContinue |
+                   Where-Object { $_.Length -ge $minBytes } |
+                   Sort-Object Length -Descending |
+                   Select-Object -First 100 |
+                   ForEach-Object {
+                       [PSCustomObject]@{
+                           Nome    = $_.Name
+                           Tamanho = Format-Size $_.Length
+                           Bytes   = $_.Length
+                           Caminho = $_.FullName
+                       }
+                   }
+    $FileQueue.Enqueue(@($fileResults))
+    Write-Log "$(@($fileResults).Count) arquivo(s) acima de ${MinMB}MB encontrado(s)." "OK"
+    Write-Log "Analise concluida." "OK"
+}
+
+# ================================================================
 # IMPORT / EXPORT DE CONFIGURACAO
 # ================================================================
 function Export-Config {
@@ -710,6 +773,7 @@ $script:FuncNames = @(
     'Invoke-TweakFileExtensions','Invoke-TweakHiddenFiles','Invoke-TweakNumLock',
     'Invoke-TweakEndTask','Invoke-TweakServices',
     'Invoke-TweakUltimatePerf','Invoke-TweakDarkTheme','Invoke-TweakWidgets','Invoke-TweakVerboseLogon',
+    'Format-Size','Get-FolderSize','Invoke-AnalisarPasta',
     'Invoke-OtimizarPC','Invoke-Diagnostico','Invoke-SFCDISM',
     'Get-NicConfig','Show-Adapters','Invoke-SetDNS','Invoke-ResetDNS',
     'Invoke-TestarConectividade','Show-IPConfig','Invoke-JoinDomain'
@@ -732,7 +796,9 @@ function Invoke-Async {
     $rs.SessionStateProxy.SetVariable("LogQueue",    $script:LogQueue)
     $rs.SessionStateProxy.SetVariable("LOG_FILE",    $script:LOG_FILE)
     $rs.SessionStateProxy.SetVariable("OfficeXML",   $script:OfficeXML)
-    $rs.SessionStateProxy.SetVariable("AppCatalog",  $script:AppCatalog)
+    $rs.SessionStateProxy.SetVariable("AppCatalog",   $script:AppCatalog)
+    $rs.SessionStateProxy.SetVariable("FolderQueue",  $script:FolderQueue)
+    $rs.SessionStateProxy.SetVariable("FileQueue",    $script:FileQueue)
     foreach ($k in $Vars.Keys) { $rs.SessionStateProxy.SetVariable($k, $Vars[$k]) }
 
     $ps = [System.Management.Automation.PowerShell]::Create()
@@ -864,6 +930,28 @@ function Invoke-Async {
     <Style TargetType="Separator">
       <Setter Property="Background" Value="#3E4451"/>
       <Setter Property="Margin" Value="0,8"/>
+    </Style>
+
+    <Style TargetType="ListView">
+      <Setter Property="Background" Value="#1E2128"/>
+      <Setter Property="Foreground" Value="#ABB2BF"/>
+      <Setter Property="BorderBrush" Value="#3E4451"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <Style TargetType="GridViewColumnHeader">
+      <Setter Property="Background" Value="#2D3139"/>
+      <Setter Property="Foreground" Value="#61AFEF"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="BorderBrush" Value="#3E4451"/>
+      <Setter Property="Padding" Value="8,4"/>
+    </Style>
+
+    <Style TargetType="ProgressBar">
+      <Setter Property="Height" Value="14"/>
+      <Setter Property="Background" Value="#2D3139"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Foreground" Value="#61AFEF"/>
     </Style>
 
   </Window.Resources>
@@ -1147,6 +1235,81 @@ function Invoke-Async {
         </ScrollViewer>
       </TabItem>
 
+      <!-- ========================================================== -->
+      <!-- TAB: ARMAZENAMENTO                                          -->
+      <!-- ========================================================== -->
+      <TabItem Header="  Armazenamento  ">
+        <Grid Background="#21252B">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+
+          <!-- Barras de disco -->
+          <GroupBox Grid.Row="0" Header="Discos" Margin="16,12,16,0">
+            <StackPanel x:Name="DrivePanel" Margin="4,4"/>
+          </GroupBox>
+
+          <!-- Controles de analise -->
+          <Border Grid.Row="1" Background="#1E2128" Margin="16,8,16,0"
+                  CornerRadius="4" Padding="12,8">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBox x:Name="TxtAnalyzePath" Grid.Column="0" Text="C:\" Margin="0,0,8,0"/>
+              <Button  x:Name="BtnBrowseFolder" Grid.Column="1" Content="..." Width="32" Margin="0,0,8,0"
+                       Background="#4B5263" Foreground="#ABB2BF"/>
+              <TextBlock Grid.Column="2" Text="Arquivos acima de" Foreground="#5C6370"
+                         VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11"/>
+              <TextBox x:Name="TxtMinMB" Grid.Column="3" Text="50" Width="50" Margin="0,0,8,0"/>
+              <TextBlock Grid.Column="3" Text="MB" Foreground="#5C6370" VerticalAlignment="Center"
+                         HorizontalAlignment="Right" Margin="0,0,-30,0" FontSize="11"/>
+              <Button  x:Name="BtnAnalisarPasta" Grid.Column="4" Content="Analisar" Background="#61AFEF" Foreground="#1E2128"/>
+            </Grid>
+          </Border>
+
+          <!-- Resultados -->
+          <Grid Grid.Row="2" Margin="16,8,16,12">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="12"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <GroupBox Grid.Column="0" Header="Subpastas  (por tamanho)">
+              <ListView x:Name="LvFolders" Margin="0">
+                <ListView.View>
+                  <GridView>
+                    <GridViewColumn Header="Pasta"   DisplayMemberBinding="{Binding Nome}"    Width="180"/>
+                    <GridViewColumn Header="Tamanho" DisplayMemberBinding="{Binding Tamanho}" Width="90"/>
+                    <GridViewColumn Header="Caminho" DisplayMemberBinding="{Binding Caminho}" Width="260"/>
+                  </GridView>
+                </ListView.View>
+              </ListView>
+            </GroupBox>
+
+            <GroupBox Grid.Column="2" Header="Maiores arquivos">
+              <ListView x:Name="LvFiles" Margin="0">
+                <ListView.View>
+                  <GridView>
+                    <GridViewColumn Header="Arquivo"  DisplayMemberBinding="{Binding Nome}"    Width="180"/>
+                    <GridViewColumn Header="Tamanho"  DisplayMemberBinding="{Binding Tamanho}" Width="90"/>
+                    <GridViewColumn Header="Caminho"  DisplayMemberBinding="{Binding Caminho}" Width="260"/>
+                  </GridView>
+                </ListView.View>
+              </ListView>
+            </GroupBox>
+          </Grid>
+
+        </Grid>
+      </TabItem>
+
     </TabControl>
 
     <!-- ============================================================ -->
@@ -1246,7 +1409,13 @@ $TxtDomName              = $Window.FindName("TxtDomName")
 $BtnJoinDomain           = $Window.FindName("BtnJoinDomain")
 $LogBox                  = $Window.FindName("LogBox")
 $BtnLimparLog            = $Window.FindName("BtnLimparLog")
-$TxtSysInfo              = $Window.FindName("TxtSysInfo")
+$DrivePanel              = $Window.FindName("DrivePanel")
+$TxtAnalyzePath          = $Window.FindName("TxtAnalyzePath")
+$TxtMinMB                = $Window.FindName("TxtMinMB")
+$BtnBrowseFolder         = $Window.FindName("BtnBrowseFolder")
+$BtnAnalisarPasta        = $Window.FindName("BtnAnalisarPasta")
+$LvFolders               = $Window.FindName("LvFolders")
+$LvFiles                 = $Window.FindName("LvFiles")
 
 # ================================================================
 # TIMER — drena a fila de log dos runspaces para a UI
@@ -1265,6 +1434,18 @@ $LogTimer.Add_Tick({
         $count++
     }
     if ($count -gt 0) { $LogBox.ScrollIntoView($LogBox.Items[$LogBox.Items.Count - 1]) }
+
+    # Drena resultados de pastas
+    $res = $null
+    if ($script:FolderQueue.TryDequeue([ref]$res)) {
+        $LvFolders.Items.Clear()
+        foreach ($r in $res) { [void]$LvFolders.Items.Add($r) }
+    }
+    # Drena resultados de arquivos
+    if ($script:FileQueue.TryDequeue([ref]$res)) {
+        $LvFiles.Items.Clear()
+        foreach ($r in $res) { [void]$LvFiles.Items.Add($r) }
+    }
 })
 $LogTimer.Start()
 
@@ -1511,6 +1692,71 @@ $MenuImport.Add_Click({
     }
 
     Write-Log "Perfil aplicado — revise as selecoes e clique em Aplicar." "AVISO"
+})
+
+# --- Armazenamento ---
+
+# Barras de disco
+try {
+    Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -gt 0 } | ForEach-Object {
+        $total  = $_.Used + $_.Free
+        $usedPct = [math]::Round(($_.Used / $total) * 100)
+        $totalStr = [math]::Round($total / 1GB, 1)
+        $usedStr  = [math]::Round($_.Used  / 1GB, 1)
+        $freeStr  = [math]::Round($_.Free  / 1GB, 1)
+        $color    = if ($usedPct -ge 90) { "#E06C75" } elseif ($usedPct -ge 75) { "#E5C07B" } else { "#61AFEF" }
+
+        $row = New-Object System.Windows.Controls.Grid
+        $row.Margin = "0,0,0,10"
+        $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = "60"
+        $c2 = New-Object System.Windows.Controls.ColumnDefinition; $c2.Width = "*"
+        $c3 = New-Object System.Windows.Controls.ColumnDefinition; $c3.Width = "200"
+        $row.ColumnDefinitions.Add($c1); $row.ColumnDefinitions.Add($c2); $row.ColumnDefinitions.Add($c3)
+
+        $lbl = New-Object System.Windows.Controls.TextBlock
+        $lbl.Text = "$($_.Name):"
+        $lbl.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFrom("#ABB2BF")
+        $lbl.FontWeight = "SemiBold"
+        $lbl.VerticalAlignment = "Center"
+        [System.Windows.Controls.Grid]::SetColumn($lbl, 0)
+
+        $pb = New-Object System.Windows.Controls.ProgressBar
+        $pb.Value = $usedPct
+        $pb.Maximum = 100
+        $pb.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFrom($color)
+        $pb.VerticalAlignment = "Center"
+        $pb.Margin = "0,0,12,0"
+        [System.Windows.Controls.Grid]::SetColumn($pb, 1)
+
+        $info = New-Object System.Windows.Controls.TextBlock
+        $info.Text = "${usedStr}GB usados de ${totalStr}GB  (${freeStr}GB livre — ${usedPct}%)"
+        $info.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFrom("#5C6370")
+        $info.FontSize = 11
+        $info.VerticalAlignment = "Center"
+        [System.Windows.Controls.Grid]::SetColumn($info, 2)
+
+        $row.Children.Add($lbl) | Out-Null
+        $row.Children.Add($pb)  | Out-Null
+        $row.Children.Add($info)| Out-Null
+        $DrivePanel.Children.Add($row) | Out-Null
+    }
+} catch {}
+
+$BtnBrowseFolder.Add_Click({
+    $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dlg.Description  = "Selecione a pasta para analisar"
+    $dlg.SelectedPath = $TxtAnalyzePath.Text
+    if ($dlg.ShowDialog() -eq "OK") { $TxtAnalyzePath.Text = $dlg.SelectedPath }
+})
+
+$BtnAnalisarPasta.Add_Click({
+    $path  = $TxtAnalyzePath.Text.Trim()
+    $minMB = [int]($TxtMinMB.Text -replace "[^0-9]","")
+    if (-not $minMB) { $minMB = 50 }
+    if (-not (Test-Path $path)) { Write-Log "Pasta nao encontrada: $path" "ERRO"; return }
+    $LvFolders.Items.Clear()
+    $LvFiles.Items.Clear()
+    Invoke-Async { Invoke-AnalisarPasta -Path $P -MinMB $M } -Vars @{ P = $path; M = $minMB }
 })
 
 # --- Log ---
