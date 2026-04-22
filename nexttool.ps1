@@ -13,13 +13,27 @@ $ErrorActionPreference = "Continue"
 $OutputEncoding           = [System.Text.Encoding]::UTF8
 try { chcp 65001 | Out-Null } catch {}
 
-# === ELEVACAO ===
-if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    $scriptPath = $MyInvocation.MyCommand.Path
+# === ELEVACAO + JANELA OCULTA ===
+$scriptPath = $MyInvocation.MyCommand.Path
+$isAdmin    = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$isHidden   = [System.Environment]::GetCommandLineArgs() -contains "-GUI"
+
+if (-not $isAdmin) {
+    # Relanca elevado e ja oculto
     if ($scriptPath) {
-        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs
+        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`" -GUI" -Verb RunAs
     } else {
-        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -Command `"irm 'https://raw.githubusercontent.com/matheusgabsilva/nexttool/main/nexttool.ps1' | iex`"" -Verb RunAs
+        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"irm 'https://raw.githubusercontent.com/matheusgabsilva/nexttool/main/nexttool.ps1' | iex`"" -Verb RunAs
+    }
+    exit
+}
+
+if (-not $isHidden) {
+    # Ja e admin mas janela ainda visivel — relanca oculto sem pedir UAC
+    if ($scriptPath) {
+        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`" -GUI"
+    } else {
+        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"irm 'https://raw.githubusercontent.com/matheusgabsilva/nexttool/main/nexttool.ps1' | iex`""
     }
     exit
 }
