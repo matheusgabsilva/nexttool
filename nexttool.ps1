@@ -88,43 +88,116 @@ function Install-Winget {
     }
 }
 
-function Install-WingetApp {
-    param([string]$Id, [string]$Name)
-    Write-Log "Instalando $Name..." "STEP"
+# Catalogo: winget ID + download direto de fallback
+$script:AppCatalog = @{
+    "Google.Chrome" = @{
+        Nome     = "Google Chrome"
+        Url      = "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi"
+        Ext      = "msi"
+        InstArgs = "/quiet /norestart"
+    }
+    "RARLab.WinRAR" = @{
+        Nome     = "WinRAR"
+        Url      = "https://www.rarlab.com/rar/winrar-x64-701.exe"
+        Ext      = "exe"
+        InstArgs = "/S"
+    }
+    "Adobe.Acrobat.Reader.64-bit" = @{
+        Nome     = "Adobe Acrobat Reader"
+        Url      = "https://ardownload2.adobe.com/pub/adobe/acrobat/win/AcroRdrDC/2400120220/AcroRdrDC2400120220_MUI.exe"
+        Ext      = "exe"
+        InstArgs = "/sAll /rs /msi EULA_ACCEPT=YES"
+    }
+    "AnyDesk.AnyDesk" = @{
+        Nome     = "AnyDesk"
+        Url      = "https://download.anydesk.com/AnyDesk.exe"
+        Ext      = "exe"
+        InstArgs = "--install --start-with-win --create-desktop-icon --create-taskbar-entry --silent"
+    }
+    "TeamViewer.TeamViewer" = @{
+        Nome     = "TeamViewer"
+        Url      = "https://download.teamviewer.com/download/TeamViewer_Setup_x64.exe"
+        Ext      = "exe"
+        InstArgs = "/S"
+    }
+}
 
-    $tmpOut = [System.IO.Path]::GetTempFileName()
-    $tmpErr = [System.IO.Path]::GetTempFileName()
+function Install-DirectApp {
+    param([string]$Nome, [string]$Url, [string]$Ext, [string]$InstArgs)
+    Write-Log "Download direto: $Nome..." "AVISO"
+    $tmp = "$env:TEMP\nexttool_install.$Ext"
     try {
-        $proc = Start-Process -FilePath "winget" `
-            -ArgumentList "install --id $Id -e --accept-source-agreements --accept-package-agreements --silent" `
-            -Wait -PassThru -NoNewWindow `
-            -RedirectStandardOutput $tmpOut `
-            -RedirectStandardError  $tmpErr
-
-        $out = ((Get-Content $tmpOut -Raw -ErrorAction SilentlyContinue) +
-                (Get-Content $tmpErr -Raw -ErrorAction SilentlyContinue)).Trim()
-        if ($out) {
-            $out -split "`n" | ForEach-Object {
-                $line = $_.Trim()
-                # ignora linhas de barra de progresso do winget
-                if ($line -and $line -notmatch "^[-='\\\|/ ]{4,}$" -and $line -notmatch "^\s*[\\/|]\s*$") {
-                    Write-Log $line "PLAIN"
-                }
-            }
-        }
-
-        # Detecta sucesso por exit code OU por palavras-chave no output
-        $exitOk  = $proc.ExitCode -eq 0 -or $proc.ExitCode -eq -1978335189
-        $ouputOk = $out -match "instalado com sucesso|successfully installed|installation success|install complete|ja instalado|already installed"
-        if ($exitOk -or $ouputOk) {
-            Write-Log "$Name instalado com sucesso." "OK"
+        Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing
+        Write-Log "Executando instalador de $Nome..." "STEP"
+        if ($Ext -eq "msi") {
+            $proc = Start-Process "msiexec.exe" -ArgumentList "/i `"$tmp`" $InstArgs" -Wait -PassThru
         } else {
-            Write-Log "Falha ao instalar $Name (codigo: $($proc.ExitCode))." "ERRO"
+            $proc = Start-Process $tmp -ArgumentList $InstArgs -Wait -PassThru
+        }
+        # 0=sucesso | 3010=requer reinicio
+        if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010) {
+            Write-Log "$Nome instalado com sucesso (direto)." "OK"
+        } else {
+            Write-Log "Falha no instalador de $Nome (codigo: $($proc.ExitCode))." "ERRO"
         }
     } catch {
-        Write-Log "Erro ao executar winget para $Name`: $_" "ERRO"
+        Write-Log "Erro no download/instalacao de $Nome`: $_" "ERRO"
     } finally {
-        Remove-Item $tmpOut, $tmpErr -ErrorAction SilentlyContinue
+        Remove-Item $tmp -ErrorAction SilentlyContinue
+    }
+}
+
+function Install-WingetApp {
+    param([string]$Id, [string]$Name)
+    $wingetOk = $false
+    Write-Log "Instalando $Name..." "STEP"
+
+    # --- Metodo 1: winget ---
+    if (Test-Winget) {
+        Write-Log "[1/2] Tentando via winget..." "INFO"
+        $tmpOut = [System.IO.Path]::GetTempFileName()
+        $tmpErr = [System.IO.Path]::GetTempFileName()
+        try {
+            $proc = Start-Process -FilePath "winget" `
+                -ArgumentList "install --id $Id -e --accept-source-agreements --accept-package-agreements --silent" `
+                -Wait -PassThru -NoNewWindow `
+                -RedirectStandardOutput $tmpOut `
+                -RedirectStandardError  $tmpErr
+
+            $out = ((Get-Content $tmpOut -Raw -ErrorAction SilentlyContinue) +
+                    (Get-Content $tmpErr -Raw -ErrorAction SilentlyContinue)).Trim()
+            if ($out) {
+                $out -split "`n" | ForEach-Object {
+                    $l = $_.Trim()
+                    if ($l -and $l -notmatch "^[-\\|/ ]{3,}$") { Write-Log $l "PLAIN" }
+                }
+            }
+            $exitOk   = $proc.ExitCode -eq 0 -or $proc.ExitCode -eq -1978335189
+            $outputOk = $out -match "instalado|successfully installed|already installed"
+            if ($exitOk -or $outputOk) {
+                Write-Log "$Name instalado via winget." "OK"
+                $wingetOk = $true
+            } else {
+                Write-Log "winget falhou (codigo: $($proc.ExitCode)). Tentando download direto..." "AVISO"
+            }
+        } catch {
+            Write-Log "Erro no winget: $_. Tentando download direto..." "AVISO"
+        } finally {
+            Remove-Item $tmpOut, $tmpErr -ErrorAction SilentlyContinue
+        }
+    } else {
+        Write-Log "[1/2] winget nao disponivel. Usando download direto..." "AVISO"
+    }
+
+    # --- Metodo 2: download direto (fallback) ---
+    if (-not $wingetOk) {
+        $app = $AppCatalog[$Id]
+        if ($app) {
+            Write-Log "[2/2] Download direto do fabricante..." "INFO"
+            Install-DirectApp -Nome $app.Nome -Url $app.Url -Ext $app.Ext -InstArgs $app.InstArgs
+        } else {
+            Write-Log "Sem fallback disponivel para $Name." "ERRO"
+        }
     }
 }
 
@@ -631,7 +704,7 @@ function Import-Config {
 # ================================================================
 $script:FuncNames = @(
     'Write-Log','Test-Winget','Install-Winget','Install-WingetApp',
-    'Install-Office','Install-PadraoNext',
+    'Install-Office','Install-PadraoNext','Install-DirectApp',
     'Invoke-TweakHibernacao','Invoke-TweakSmartApp','Invoke-TweakDrivers',
     'Invoke-TweakTelemetria','Invoke-TweakActivityHistory','Invoke-TweakLocationTracking',
     'Invoke-TweakFileExtensions','Invoke-TweakHiddenFiles','Invoke-TweakNumLock',
@@ -656,9 +729,10 @@ function Invoke-Async {
     $rs.ThreadOptions  = "ReuseThread"
     $rs.Open()
 
-    $rs.SessionStateProxy.SetVariable("LogQueue",  $script:LogQueue)
-    $rs.SessionStateProxy.SetVariable("LOG_FILE",  $script:LOG_FILE)
-    $rs.SessionStateProxy.SetVariable("OfficeXML", $script:OfficeXML)
+    $rs.SessionStateProxy.SetVariable("LogQueue",    $script:LogQueue)
+    $rs.SessionStateProxy.SetVariable("LOG_FILE",    $script:LOG_FILE)
+    $rs.SessionStateProxy.SetVariable("OfficeXML",   $script:OfficeXML)
+    $rs.SessionStateProxy.SetVariable("AppCatalog",  $script:AppCatalog)
     foreach ($k in $Vars.Keys) { $rs.SessionStateProxy.SetVariable($k, $Vars[$k]) }
 
     $ps = [System.Management.Automation.PowerShell]::Create()
