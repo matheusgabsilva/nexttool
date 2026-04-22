@@ -152,35 +152,65 @@ $script:AppCatalog = @{
 function Resolve-AdobeReaderUrl {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-    # Metodo 1: manifest XML da Adobe (ARM) — retorna versao atual do Reader DC
+    # Metodo 1: API RDC da Adobe (usada pelo proprio Reader para checar atualizacoes)
     try {
-        $xml = [xml](Invoke-WebRequest -Uri "https://armmf.adobe.com/arm-manifests/win/AcrobatDCManifest.xml" `
-            -UseBasicParsing -ErrorAction Stop).Content
-        # Versao no formato 24.001.20604 → converter para 2400120604 (sem pontos, 10 digitos)
-        $ver = ($xml.manifest.product | Where-Object { $_.name -match 'Reader' } |
-            Select-Object -First 1).version
-        if (-not $ver) { $ver = $xml.manifest.product[0].version }
-        $verNum = $ver -replace '\.',''   # ex: "24.007.20320" → "2400720320"
-        $url = "https://ardownload2.adobe.com/pub/adobe/acrobat/win/AcroRdrDC/$verNum/AcroRdrDC${verNum}_MUI.exe"
-        Write-Log "Adobe Reader versao detectada: $ver ($verNum)" "INFO"
-        return $url
-    } catch {
-        Write-Log "Manifest Adobe falhou: $_" "AVISO"
-    }
-
-    # Metodo 2: pagina de release notes para extrair versao atual
-    try {
-        $page = Invoke-WebRequest -Uri "https://www.adobe.com/devnet-docs/acrobatetk/tools/ReleaseNotesDC/index.html" `
+        $api = Invoke-WebRequest `
+            -Uri "https://rdc.adobe.io/reader/products?os=Windows&os_version=10&product=readerdc&platform=Windows&mode=win" `
             -UseBasicParsing -ErrorAction Stop
-        $m = [regex]::Match($page.Content, 'AcroRdrDC(\d{10})_MUI\.exe')
-        if ($m.Success) {
-            $verNum = $m.Groups[1].Value
-            $url = "https://ardownload2.adobe.com/pub/adobe/acrobat/win/AcroRdrDC/$verNum/AcroRdrDC${verNum}_MUI.exe"
-            Write-Log "Adobe Reader versao detectada via release notes: $verNum" "INFO"
-            return $url
+        $json = $api.Content | ConvertFrom-Json
+        # Pega o produto principal (nao patch)
+        $prod = $json.products | Where-Object { $_.name -match 'Reader' -and $_.installerType -eq 'Full' } |
+            Select-Object -First 1
+        if (-not $prod) { $prod = $json.products | Select-Object -First 1 }
+        if ($prod.installerLink) {
+            Write-Log "Adobe Reader versao via RDC API: $($prod.productVersion)" "INFO"
+            return $prod.installerLink
         }
     } catch {
-        Write-Log "Release notes Adobe falhou: $_" "AVISO"
+        Write-Log "RDC API Adobe falhou: $_" "AVISO"
+    }
+
+    # Metodo 2: API publica do Evergreen (stealthpuppy)
+    try {
+        $api2 = Invoke-WebRequest -Uri "https://evergreen-api.stealthpuppy.com/app/AdobeAcrobatReaderDC" `
+            -UseBasicParsing -ErrorAction Stop
+        $json2 = $api2.Content | ConvertFrom-Json
+        $entry = $json2 | Where-Object { $_.Architecture -eq "x64" -and $_.Language -eq "MUI" } |
+            Select-Object -First 1
+        if (-not $entry) { $entry = $json2 | Where-Object { $_.Language -eq "MUI" } | Select-Object -First 1 }
+        if (-not $entry) { $entry = $json2 | Select-Object -First 1 }
+        if ($entry.URI) {
+            Write-Log "Adobe Reader versao via Evergreen: $($entry.Version)" "INFO"
+            return $entry.URI
+        }
+    } catch {
+        Write-Log "Evergreen API Adobe falhou: $_" "AVISO"
+    }
+
+    # Metodo 3: manifesto do winget no GitHub (sempre atualizado)
+    try {
+        $ghApi = Invoke-WebRequest `
+            -Uri "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/a/Adobe/Acrobat/Reader/64-bit" `
+            -UseBasicParsing -Headers @{ "User-Agent" = "NextTool" } -ErrorAction Stop
+        $versions = ($ghApi.Content | ConvertFrom-Json) | Where-Object { $_.type -eq "dir" } |
+            Sort-Object name | Select-Object -Last 1
+        if ($versions) {
+            $installerApi = Invoke-WebRequest `
+                -Uri "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/a/Adobe/Acrobat/Reader/64-bit/$($versions.name)" `
+                -UseBasicParsing -Headers @{ "User-Agent" = "NextTool" } -ErrorAction Stop
+            $installerFile = ($installerApi.Content | ConvertFrom-Json) |
+                Where-Object { $_.name -match '\.installer\.yaml' } | Select-Object -First 1
+            if ($installerFile) {
+                $yaml = (Invoke-WebRequest -Uri $installerFile.download_url -UseBasicParsing).Content
+                $m = [regex]::Match($yaml, 'InstallerUrl:\s*(https://\S+\.exe)')
+                if ($m.Success) {
+                    Write-Log "Adobe Reader versao via winget manifest: $($versions.name)" "INFO"
+                    return $m.Groups[1].Value
+                }
+            }
+        }
+    } catch {
+        Write-Log "winget manifest Adobe falhou: $_" "AVISO"
     }
 
     return $null
