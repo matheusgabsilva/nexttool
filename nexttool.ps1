@@ -318,10 +318,22 @@ function Invoke-Diagnostico {
         Write-Log " RTP: $(if ($def.RealTimeProtectionEnabled){'Ativada'}else{'DESATIVADA'})" $(if ($def.RealTimeProtectionEnabled){"OK"} else {"AVISO"})
     } catch { Write-Log " Nao foi possivel verificar o Defender." "AVISO" }
     try {
-        $fw = netsh advfirewall show allprofiles state 2>&1 | Out-String
-        $on = ([regex]::Matches($fw,"(?i)State\s+ON")).Count
-        Write-Log " Firewall: $on perfil(is) ativo(s)" $(if ($on -gt 0){"OK"} else {"ERRO"})
-    } catch {}
+        # Usa CIM em vez de netsh para nao depender de encoding do runspace
+        $fwProfiles = Get-CimInstance -Namespace "root/StandardCimv2" -ClassName MSFT_NetFirewallProfile -ErrorAction Stop
+        $on = @($fwProfiles | Where-Object { $_.Enabled -eq $true }).Count
+        $fwNames = ($fwProfiles | Where-Object { $_.Enabled -eq $true } | ForEach-Object {
+            switch ($_.Name) { "Domain"{"Dominio"} "Private"{"Privado"} "Public"{"Publico"} default{$_.Name} }
+        }) -join ", "
+        if ($on -gt 0) { Write-Log " Firewall: $on perfil(is) ativo(s) [$fwNames]" "OK" }
+        else { Write-Log " Firewall: TODOS OS PERFIS DESATIVADOS" "ERRO" }
+    } catch {
+        # Fallback netsh
+        try {
+            $fw = & netsh.exe advfirewall show allprofiles state 2>&1 | Out-String
+            $on = ([regex]::Matches($fw,"(?i)(State|Estado)\s+(ON|Ativado)")).Count
+            Write-Log " Firewall: $on perfil(is) ativo(s)" $(if ($on -gt 0){"OK"} else {"ERRO"})
+        } catch {}
+    }
     try {
         $uac = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System").EnableLUA
         Write-Log " UAC: $(if ($uac -eq 1){'Ativado'}else{'DESATIVADO'})" $(if ($uac -eq 1){"OK"} else {"AVISO"})
@@ -332,7 +344,11 @@ function Invoke-Diagnostico {
     } catch {}
     try {
         $tpm = Get-Tpm -ErrorAction Stop
-        Write-Log " TPM: $(if ($tpm.TpmPresent){"Presente v$($tpm.ManufacturerVersionInfo)"}else{'Nao detectado'})" "PLAIN"
+        if ($tpm.TpmPresent) {
+            # SpecVersion ex: "2.0, 0, 1.59" — pega o primeiro segmento
+            $tpmVer = try { ((Get-CimInstance -Namespace "root/cimv2/security/microsofttpm" -ClassName Win32_Tpm -ErrorAction Stop).SpecVersion -split ",")[0].Trim() } catch { "" }
+            Write-Log " TPM: Presente$(if ($tpmVer){" (spec $tpmVer)"})" "PLAIN"
+        } else { Write-Log " TPM: Nao detectado" "PLAIN" }
     } catch {}
 
     # Processos
@@ -1389,14 +1405,26 @@ try {
     $defSt = "Defender: ?"
     try { $def = Get-MpComputerStatus -ErrorAction Stop; $defSt = if ($def.AntivirusEnabled) {"Defender: ATIVO"} else {"Defender: INATIVO"} } catch {}
     $fwSt = "Firewall: ?"
-    try { $fwOut = netsh advfirewall show allprofiles state 2>&1 | Out-String
-          $on = ([regex]::Matches($fwOut,"(?i)State\s+ON")).Count
-          $fwSt = "Firewall: $on perfil(is) ativo(s)" } catch {}
+    try {
+        $fwProfiles = Get-CimInstance -Namespace "root/StandardCimv2" -ClassName MSFT_NetFirewallProfile -ErrorAction Stop
+        $on = @($fwProfiles | Where-Object { $_.Enabled -eq $true }).Count
+        $fwSt = "Firewall: $on perfil(is) ativo(s)"
+    } catch {
+        try { $fwOut = & netsh.exe advfirewall show allprofiles state 2>&1 | Out-String
+              $on = ([regex]::Matches($fwOut,"(?i)(State|Estado)\s+(ON|Ativado)")).Count
+              $fwSt = "Firewall: $on perfil(is) ativo(s)" } catch {}
+    }
     $SiSec.Text   = "$defSt`n$fwSt"
 
     $tpmSt = "TPM: ?"
     $sbSt  = "Secure Boot: ?"
-    try { $tpm = Get-Tpm -ErrorAction Stop; $tpmSt = if ($tpm.TpmPresent) {"TPM: Presente"} else {"TPM: Nao detectado"} } catch {}
+    try {
+        $tpm = Get-Tpm -ErrorAction Stop
+        if ($tpm.TpmPresent) {
+            $tpmVer = try { ((Get-CimInstance -Namespace "root/cimv2/security/microsofttpm" -ClassName Win32_Tpm -ErrorAction Stop).SpecVersion -split ",")[0].Trim() } catch { "" }
+            $tpmSt = "TPM: Presente$(if ($tpmVer){" (spec $tpmVer)"})"
+        } else { $tpmSt = "TPM: Nao detectado" }
+    } catch {}
     try { $sb = Confirm-SecureBootUEFI -ErrorAction Stop; $sbSt = if ($sb) {"Secure Boot: Ativo"} else {"Secure Boot: Inativo"} } catch {}
     $SiTpm.Text   = "$tpmSt`n$sbSt"
 
