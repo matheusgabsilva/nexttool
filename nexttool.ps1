@@ -150,24 +150,40 @@ $script:AppCatalog = @{
 }
 
 function Resolve-AdobeReaderUrl {
-    # Descobre versao mais recente listando o diretorio FTP da Adobe
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+    # Metodo 1: manifest XML da Adobe (ARM) — retorna versao atual do Reader DC
     try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        $index = Invoke-WebRequest -Uri "https://ardownload2.adobe.com/pub/adobe/acrobat/win/AcroRdrDC/" `
-            -UseBasicParsing -ErrorAction Stop
-        # Encontra a pasta com numero de versao mais alto (ex: 2500120432/)
-        $latestVer = ($index.Links |
-            Where-Object { $_.href -match '^\d{10,}/?$' } |
-            Sort-Object { [long]($_.href.TrimEnd('/')) } |
-            Select-Object -Last 1).href.TrimEnd('/')
-        if (-not $latestVer) { throw "Nenhuma versao encontrada no indice Adobe." }
-        $url = "https://ardownload2.adobe.com/pub/adobe/acrobat/win/AcroRdrDC/$latestVer/AcroRdrDC${latestVer}_MUI.exe"
-        Write-Log "Adobe Reader versao detectada: $latestVer" "INFO"
+        $xml = [xml](Invoke-WebRequest -Uri "https://armmf.adobe.com/arm-manifests/win/AcrobatDCManifest.xml" `
+            -UseBasicParsing -ErrorAction Stop).Content
+        # Versao no formato 24.001.20604 → converter para 2400120604 (sem pontos, 10 digitos)
+        $ver = ($xml.manifest.product | Where-Object { $_.name -match 'Reader' } |
+            Select-Object -First 1).version
+        if (-not $ver) { $ver = $xml.manifest.product[0].version }
+        $verNum = $ver -replace '\.',''   # ex: "24.007.20320" → "2400720320"
+        $url = "https://ardownload2.adobe.com/pub/adobe/acrobat/win/AcroRdrDC/$verNum/AcroRdrDC${verNum}_MUI.exe"
+        Write-Log "Adobe Reader versao detectada: $ver ($verNum)" "INFO"
         return $url
     } catch {
-        Write-Log "Falha ao resolver URL Adobe via FTP index: $_" "AVISO"
-        return $null
+        Write-Log "Manifest Adobe falhou: $_" "AVISO"
     }
+
+    # Metodo 2: pagina de release notes para extrair versao atual
+    try {
+        $page = Invoke-WebRequest -Uri "https://www.adobe.com/devnet-docs/acrobatetk/tools/ReleaseNotesDC/index.html" `
+            -UseBasicParsing -ErrorAction Stop
+        $m = [regex]::Match($page.Content, 'AcroRdrDC(\d{10})_MUI\.exe')
+        if ($m.Success) {
+            $verNum = $m.Groups[1].Value
+            $url = "https://ardownload2.adobe.com/pub/adobe/acrobat/win/AcroRdrDC/$verNum/AcroRdrDC${verNum}_MUI.exe"
+            Write-Log "Adobe Reader versao detectada via release notes: $verNum" "INFO"
+            return $url
+        }
+    } catch {
+        Write-Log "Release notes Adobe falhou: $_" "AVISO"
+    }
+
+    return $null
 }
 
 function Install-DirectApp {
@@ -325,7 +341,8 @@ function Install-Office {
             Write-Log "Pagina Microsoft nao retornou URL direta. Tentando winget..." "AVISO"
             if (Test-Winget) {
                 $tmpOut = [System.IO.Path]::GetTempFileName()
-                Start-Process "winget" -ArgumentList "install --id Microsoft.OfficeDeploymentTool -e --accept-source-agreements --accept-package-agreements --silent" `
+                $wingetExe = Get-WingetExe
+                Start-Process $wingetExe -ArgumentList "install --id Microsoft.OfficeDeploymentTool -e --accept-source-agreements --accept-package-agreements --silent" `
                     -Wait -PassThru -NoNewWindow -RedirectStandardOutput $tmpOut | Out-Null
                 Remove-Item $tmpOut -ErrorAction SilentlyContinue
                 # setup.exe fica em Program Files\ODT apos instalacao via winget
@@ -524,7 +541,8 @@ function Invoke-TweakDrivers {
         }
     }
     try {
-        Import-Module PSWindowsUpdate -Force
+        Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
+        Import-Module PSWindowsUpdate -Force -ErrorAction Stop
         $updates = Get-WindowsUpdate -Category Drivers -ErrorAction Stop
         if ($updates.Count -eq 0) {
             Write-Log "Windows Update: nenhum driver pendente." "OK"
