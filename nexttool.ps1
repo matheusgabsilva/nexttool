@@ -691,20 +691,55 @@ function Get-InstalledApps {
         "$env:ProgramData\Microsoft\Windows\Start Menu\Programs",
         "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
     )
-    $apps = foreach ($dir in $dirs) {
-        if (Test-Path $dir) {
-            Get-ChildItem -Path $dir -Filter "*.lnk" -Recurse -ErrorAction SilentlyContinue |
-                Where-Object { $_.Name -notmatch "desinstalar|uninstall|uninst" } |
-                ForEach-Object {
-                    [PSCustomObject]@{
-                        Nome   = [System.IO.Path]::GetFileNameWithoutExtension($_.Name)
-                        Origem = if ($dir -like "*ProgramData*") {"Sistema"} else {"Usuario"}
-                        Caminho= $_.FullName
-                    }
+
+    # Padroes de itens a excluir (ferramentas de sistema, docs, desinstaladores)
+    $excludePattern = @(
+        'desinstalar','uninstall','uninst',
+        'manual do console','release notes','notas de instala',
+        'what''s new','o que h[aá] de novo',
+        'module docs','manuals','documentation','ajuda$','help$',
+        'sobre o ','about ',
+        'log de telemetria',
+        'configurar java','java [\d]+ update',
+        '\(x86\)$','\(32.bit\)$'
+    ) -join '|'
+
+    # Coleta todos os .lnk
+    $raw = foreach ($dir in $dirs) {
+        if (-not (Test-Path $dir)) { continue }
+        Get-ChildItem -Path $dir -Filter "*.lnk" -Recurse -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                [PSCustomObject]@{
+                    Nome   = [System.IO.Path]::GetFileNameWithoutExtension($_.Name)
+                    Origem = if ($dir -like "*ProgramData*") {"Sistema"} else {"Usuario"}
+                    Caminho= $_.FullName
                 }
+            }
+    }
+
+    # Filtra ruido
+    $filtered = $raw | Where-Object { $_.Nome -notmatch $excludePattern }
+
+    # Remove duplicatas: para cada nome base (sem sufixos x64/32-bit),
+    # prefere 64-bit sobre 32-bit e, empate, mantém o primeiro
+    $seen    = @{}
+    $result  = foreach ($app in ($filtered | Sort-Object Nome)) {
+        # Chave normalizada: remove sufixos de arquitetura para comparacao
+        $key = $app.Nome -replace '\s*\(x64\)$','' `
+                         -replace '\s*\(64.bit\)$','' `
+                         -replace '\s*64$','' `
+                         -replace '\s*ISE$','' |
+               ForEach-Object { $_.Trim().ToLower() }
+
+        if (-not $seen.ContainsKey($key)) {
+            $seen[$key] = $app
+        } else {
+            # Prefere versao sem sufixo de arquitetura (mais limpa)
+            $existingLen = $seen[$key].Nome.Length
+            if ($app.Nome.Length -lt $existingLen) { $seen[$key] = $app }
         }
     }
-    return @($apps | Sort-Object Nome)
+    return @($seen.Values | Sort-Object Nome)
 }
 
 function New-DesktopShortcut {
