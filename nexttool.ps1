@@ -13,30 +13,25 @@ $ErrorActionPreference = "Continue"
 $OutputEncoding           = [System.Text.Encoding]::UTF8
 try { chcp 65001 | Out-Null } catch {}
 
-# === ELEVACAO + JANELA OCULTA ===
-$scriptPath = $MyInvocation.MyCommand.Path
-$isAdmin    = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-$isHidden   = [System.Environment]::GetCommandLineArgs() -contains "-GUI"
-
-if (-not $isAdmin) {
-    # Relanca elevado e ja oculto
+# === ELEVACAO ===
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    $scriptPath = $MyInvocation.MyCommand.Path
     if ($scriptPath) {
-        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`" -GUI" -Verb RunAs
+        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs
     } else {
-        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"irm 'https://raw.githubusercontent.com/matheusgabsilva/nexttool/main/nexttool.ps1' | iex`"" -Verb RunAs
+        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -Command `"irm 'https://raw.githubusercontent.com/matheusgabsilva/nexttool/main/nexttool.ps1' | iex`"" -Verb RunAs
     }
     exit
 }
 
-if (-not $isHidden) {
-    # Ja e admin mas janela ainda visivel — relanca oculto sem pedir UAC
-    if ($scriptPath) {
-        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`" -GUI"
-    } else {
-        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"irm 'https://raw.githubusercontent.com/matheusgabsilva/nexttool/main/nexttool.ps1' | iex`""
-    }
-    exit
-}
+# === OCULTAR JANELA DO CONSOLE (sem relançar — funciona com arquivo e com irm|iex) ===
+try {
+    Add-Type -Name NativeWindow -Namespace NextTool -MemberDefinition '
+        [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+        [DllImport("user32.dll")]   public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    ' -ErrorAction SilentlyContinue
+    [NextTool.NativeWindow]::ShowWindow([NextTool.NativeWindow]::GetConsoleWindow(), 0) | Out-Null
+} catch {}
 
 Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName PresentationCore
