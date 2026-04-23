@@ -154,6 +154,20 @@ function Invoke-TweakHibernacao {
     Write-Log "Hibernacao desativada." "OK"
 }
 
+function Invoke-TweakSuspender {
+    Write-Log "Desativando suspender (sleep)..." "STEP"
+    powercfg /change standby-timeout-ac 0 | Out-Null   # plugado
+    powercfg /change standby-timeout-dc 0 | Out-Null   # bateria
+    Write-Log "Suspender desativado (AC e DC)." "OK"
+}
+
+function Invoke-TweakTela {
+    Write-Log "Desativando desligamento de tela..." "STEP"
+    powercfg /change monitor-timeout-ac 0 | Out-Null   # plugado
+    powercfg /change monitor-timeout-dc 0 | Out-Null   # bateria
+    Write-Log "Desligamento de tela desativado (AC e DC)." "OK"
+}
+
 function Invoke-TweakSmartApp {
     Write-Log "Desativando Smart App Control..." "STEP"
     $p = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy"
@@ -804,6 +818,7 @@ $script:FuncNames = @(
     'Invoke-TweakTelemetria','Invoke-TweakActivityHistory','Invoke-TweakLocationTracking',
     'Invoke-TweakFileExtensions','Invoke-TweakHiddenFiles','Invoke-TweakNumLock',
     'Invoke-TweakEndTask','Invoke-TweakServices','Invoke-TweakHibernacao','Invoke-TweakSmartApp',
+    'Invoke-TweakSuspender','Invoke-TweakTela',
     'Invoke-TweakUltimatePerf','Invoke-TweakDarkTheme','Invoke-TweakWidgets','Invoke-TweakVerboseLogon',
     'Invoke-TweakDrivers','Invoke-OtimizarPC','Invoke-SFCDISM','Invoke-CheckDisk',
     'Invoke-ResetWinsock','Invoke-LimparCacheWindowsUpdate','Invoke-GpUpdate','Invoke-RestartExplorer',
@@ -1117,6 +1132,8 @@ function Invoke-Async {
                     <CheckBox x:Name="ChkEndTask"          Content="Finalizar Tarefa no botão direito"/>
                     <CheckBox x:Name="ChkServices"         Content="Serviços desnecessários para Manual"/>
                     <CheckBox x:Name="ChkHibernacao"       Content="Desativar Hibernação"/>
+                    <CheckBox x:Name="ChkSuspender"        Content="Desativar Suspender (Sleep)"/>
+                    <CheckBox x:Name="ChkTela"             Content="Desativar Desligamento de Tela"/>
                     <CheckBox x:Name="ChkSmartApp"         Content="Desativar Smart App Control  (Win11)"/>
                   </StackPanel>
                 </GroupBox>
@@ -1479,6 +1496,8 @@ $ChkNumLock         = $Window.FindName("ChkNumLock")
 $ChkEndTask         = $Window.FindName("ChkEndTask")
 $ChkServices        = $Window.FindName("ChkServices")
 $ChkHibernacao      = $Window.FindName("ChkHibernacao")
+$ChkSuspender       = $Window.FindName("ChkSuspender")
+$ChkTela            = $Window.FindName("ChkTela")
 $ChkSmartApp        = $Window.FindName("ChkSmartApp")
 $ChkUltimatePerf    = $Window.FindName("ChkUltimatePerf")
 $ChkDarkTheme       = $Window.FindName("ChkDarkTheme")
@@ -1697,7 +1716,8 @@ $script:AllTweakChks = @(
     $ChkTelemetria,$ChkActivityHistory,$ChkLocationTracking,
     $ChkFileExtensions,$ChkHiddenFiles,$ChkNumLock,
     $ChkEndTask,$ChkServices,$ChkHibernacao,$ChkSmartApp,
-    $ChkUltimatePerf,$ChkDarkTheme,$ChkWidgets,$ChkVerboseLogon
+    $ChkUltimatePerf,$ChkDarkTheme,$ChkWidgets,$ChkVerboseLogon,
+    $ChkSuspender,$ChkTela
 )
 
 $BtnPresetNext.Add_Click({
@@ -1711,6 +1731,8 @@ $BtnPresetNext.Add_Click({
     $ChkServices.IsChecked         = $true
     $ChkHibernacao.IsChecked       = $true
     $ChkSmartApp.IsChecked         = $true
+    $ChkSuspender.IsChecked        = $true
+    $ChkTela.IsChecked             = $true
     $ChkUltimatePerf.IsChecked     = $false
     $ChkDarkTheme.IsChecked        = $false
     $ChkWidgets.IsChecked          = $false
@@ -1728,6 +1750,7 @@ $BtnAplicarTweaks.Add_Click({
         Hib=$ChkHibernacao.IsChecked; Sap=$ChkSmartApp.IsChecked
         Perf=$ChkUltimatePerf.IsChecked; Dark=$ChkDarkTheme.IsChecked
         Wgt=$ChkWidgets.IsChecked; Vrb=$ChkVerboseLogon.IsChecked
+        Sus=$ChkSuspender.IsChecked; Tla=$ChkTela.IsChecked
     }
     if (-not ($v.Values | Where-Object { $_ })) { Write-Log "Nenhum tweak selecionado." "AVISO"; return }
     Invoke-Async {
@@ -1745,6 +1768,8 @@ $BtnAplicarTweaks.Add_Click({
         if ($V.Dark) { Invoke-TweakDarkTheme }
         if ($V.Wgt)  { Invoke-TweakWidgets }
         if ($V.Vrb)  { Invoke-TweakVerboseLogon }
+        if ($V.Sus)  { Invoke-TweakSuspender }
+        if ($V.Tla)  { Invoke-TweakTela }
         Write-Log "Todos os tweaks aplicados." "OK"
     } -Vars @{ V = $v }
 })
