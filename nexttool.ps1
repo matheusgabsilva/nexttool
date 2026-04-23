@@ -652,6 +652,73 @@ function Invoke-RemoveUser {
 }
 
 # ================================================================
+# AREA DE TRABALHO
+# ================================================================
+$script:DesktopIconGuids = [ordered]@{
+    "Meu Computador"      = "{20D04FE0-3AEA-1069-A2D8-08002B30309D}"
+    "Arquivos do Usuario" = "{59031a47-3f72-44a7-89c5-5595fe6b30ee}"
+    "Rede"                = "{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}"
+    "Lixeira"             = "{645FF040-5081-101B-9F08-00AA002F954E}"
+    "Painel de Controle"  = "{26EE0668-A00A-44D7-9371-BEB064C98683}"
+}
+
+function Get-DesktopIconState {
+    $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel"
+    if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+    $result = [ordered]@{}
+    foreach ($name in $DesktopIconGuids.Keys) {
+        $guid = $DesktopIconGuids[$name]
+        $val  = (Get-ItemProperty -Path $regPath -Name $guid -ErrorAction SilentlyContinue).$guid
+        $result[$name] = ($val -ne 1)   # 0 ou ausente = visivel
+    }
+    return $result
+}
+
+function Set-DesktopIconState {
+    param([string]$IconName, [bool]$Visible)
+    $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel"
+    if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+    $guid = $DesktopIconGuids[$IconName]
+    if (-not $guid) { Write-Log "Icone '$IconName' nao encontrado." "ERRO"; return }
+    Set-ItemProperty -Path $regPath -Name $guid -Value ([int](-not $Visible)) -Type DWord -Force
+    # Atualiza o Explorer para refletir a mudança imediatamente
+    try { & rundll32.exe user32.dll, UpdatePerUserSystemParameters, 1, True } catch {}
+    Write-Log "Icone '$IconName': $(if ($Visible){'visivel'}else{'oculto'})." "OK"
+}
+
+function Get-InstalledApps {
+    $dirs = @(
+        "$env:ProgramData\Microsoft\Windows\Start Menu\Programs",
+        "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
+    )
+    $apps = foreach ($dir in $dirs) {
+        if (Test-Path $dir) {
+            Get-ChildItem -Path $dir -Filter "*.lnk" -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -notmatch "desinstalar|uninstall|uninst" } |
+                ForEach-Object {
+                    [PSCustomObject]@{
+                        Nome   = [System.IO.Path]::GetFileNameWithoutExtension($_.Name)
+                        Origem = if ($dir -like "*ProgramData*") {"Sistema"} else {"Usuario"}
+                        Caminho= $_.FullName
+                    }
+                }
+        }
+    }
+    return @($apps | Sort-Object Nome)
+}
+
+function New-DesktopShortcut {
+    param([string]$LnkSource)
+    $desktop = [Environment]::GetFolderPath("Desktop")
+    $nome    = [System.IO.Path]::GetFileName($LnkSource)
+    $dest    = Join-Path $desktop $nome
+    try {
+        Copy-Item -Path $LnkSource -Destination $dest -Force -ErrorAction Stop
+        Write-Log "Atalho criado: $([System.IO.Path]::GetFileNameWithoutExtension($nome))" "OK"
+    } catch { Write-Log "Falha ao criar atalho '$nome': $_" "ERRO" }
+}
+
+# ================================================================
 # ARMAZENAMENTO
 # ================================================================
 function Format-Size {
@@ -710,7 +777,8 @@ $script:FuncNames = @(
     'Invoke-TestarConectividade','Show-IPConfig','Invoke-RenomearPC','Invoke-JoinDomain',
     'Get-LocalUsersInfo','Invoke-CreateUser','Invoke-SetPassword',
     'Invoke-ToggleUser','Invoke-AddToAdmins','Invoke-RemoveUser',
-    'Format-Size','Get-FolderSize','Invoke-AnalisarPasta'
+    'Format-Size','Get-FolderSize','Invoke-AnalisarPasta',
+    'Get-DesktopIconState','Set-DesktopIconState','Get-InstalledApps','New-DesktopShortcut'
 )
 
 function Invoke-Async {
@@ -726,8 +794,9 @@ function Invoke-Async {
     $rs.Open()
     $rs.SessionStateProxy.SetVariable("LogQueue",    $script:LogQueue)
     $rs.SessionStateProxy.SetVariable("LOG_FILE",    $script:LOG_FILE)
-    $rs.SessionStateProxy.SetVariable("FolderQueue", $script:FolderQueue)
-    $rs.SessionStateProxy.SetVariable("FileQueue",   $script:FileQueue)
+    $rs.SessionStateProxy.SetVariable("FolderQueue",       $script:FolderQueue)
+    $rs.SessionStateProxy.SetVariable("FileQueue",         $script:FileQueue)
+    $rs.SessionStateProxy.SetVariable("DesktopIconGuids",  $script:DesktopIconGuids)
     $rs.SessionStateProxy.SetVariable("UserQueue",   $script:UserQueue)
     foreach ($k in $Vars.Keys) { $rs.SessionStateProxy.SetVariable($k, $Vars[$k]) }
     $ps = [System.Management.Automation.PowerShell]::Create()
@@ -1164,6 +1233,76 @@ function Invoke-Async {
         </Grid>
       </TabItem>
 
+      <!-- ===== AREA DE TRABALHO ===== -->
+      <TabItem Header="  Área de Trabalho  ">
+        <Grid Background="#21252B">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+
+          <!-- Icones do sistema -->
+          <GroupBox Grid.Row="0" Header="Ícones do Sistema" Margin="16,12,16,0">
+            <StackPanel Margin="4,6">
+              <WrapPanel>
+                <CheckBox x:Name="ChkDtComputer"  Content="🖥  Meu Computador"      Width="200" Margin="0,0,10,6"/>
+                <CheckBox x:Name="ChkDtUser"      Content="👤  Arquivos do Usuário" Width="200" Margin="0,0,10,6"/>
+                <CheckBox x:Name="ChkDtNetwork"   Content="🌐  Rede"                Width="200" Margin="0,0,10,6"/>
+                <CheckBox x:Name="ChkDtRecycle"   Content="🗑  Lixeira"             Width="200" Margin="0,0,10,6"/>
+                <CheckBox x:Name="ChkDtControl"   Content="⚙  Painel de Controle"  Width="200" Margin="0,0,10,6"/>
+              </WrapPanel>
+              <Button x:Name="BtnAplicarIcones" Content="Aplicar Ícones"
+                      HorizontalAlignment="Left" Background="#61AFEF" Foreground="#1E2128"
+                      Padding="14,6" Margin="0,6,0,0"/>
+            </StackPanel>
+          </GroupBox>
+
+          <!-- Apps instalados -->
+          <Grid Grid.Row="1" Margin="16,10,16,12">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Barra de busca -->
+            <Grid Grid.Row="0" Margin="0,0,0,8">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBox x:Name="TxtAppSearch" Grid.Column="0"
+                       Margin="0,0,8,0" FontSize="12"/>
+              <TextBlock Text="🔍" Grid.Column="0"
+                         Foreground="#5C6370" FontSize="13"
+                         HorizontalAlignment="Right" VerticalAlignment="Center"
+                         Margin="0,0,16,0" IsHitTestVisible="False"/>
+              <Button x:Name="BtnCarregarApps" Grid.Column="1"
+                      Content="🔄 Carregar Apps" Background="#4B5263" Foreground="#ABB2BF" Padding="12,5"/>
+            </Grid>
+
+            <!-- Lista de apps -->
+            <ListView x:Name="LvApps" Grid.Row="1" SelectionMode="Extended">
+              <ListView.View>
+                <GridView>
+                  <GridViewColumn Header="Aplicativo" DisplayMemberBinding="{Binding Nome}"   Width="340"/>
+                  <GridViewColumn Header="Origem"     DisplayMemberBinding="{Binding Origem}" Width="90"/>
+                </GridView>
+              </ListView.View>
+            </ListView>
+
+            <!-- Botoes -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+              <Button x:Name="BtnCriarAtalho" Content="➕  Criar Atalho na Área de Trabalho"
+                      Background="#98C379" Foreground="#1E2128" Padding="14,7" Margin="0,0,10,0"/>
+              <TextBlock x:Name="TxtAppCount" Foreground="#5C6370" FontSize="11"
+                         VerticalAlignment="Center"/>
+            </StackPanel>
+          </Grid>
+
+        </Grid>
+      </TabItem>
+
       <!-- ===== ARMAZENAMENTO ===== -->
       <TabItem Header="  Armazenamento  ">
         <Grid Background="#21252B">
@@ -1335,6 +1474,17 @@ $BtnCreateUser      = $Window.FindName("BtnCreateUser")
 $TxtChgUser         = $Window.FindName("TxtChgUser")
 $TxtChgPass         = $Window.FindName("TxtChgPass")
 $BtnSetPassword     = $Window.FindName("BtnSetPassword")
+$ChkDtComputer      = $Window.FindName("ChkDtComputer")
+$ChkDtUser          = $Window.FindName("ChkDtUser")
+$ChkDtNetwork       = $Window.FindName("ChkDtNetwork")
+$ChkDtRecycle       = $Window.FindName("ChkDtRecycle")
+$ChkDtControl       = $Window.FindName("ChkDtControl")
+$BtnAplicarIcones   = $Window.FindName("BtnAplicarIcones")
+$LvApps             = $Window.FindName("LvApps")
+$TxtAppSearch       = $Window.FindName("TxtAppSearch")
+$BtnCarregarApps    = $Window.FindName("BtnCarregarApps")
+$BtnCriarAtalho     = $Window.FindName("BtnCriarAtalho")
+$TxtAppCount        = $Window.FindName("TxtAppCount")
 $DrivePanel         = $Window.FindName("DrivePanel")
 $TxtAnalyzePath     = $Window.FindName("TxtAnalyzePath")
 $TxtMinMB           = $Window.FindName("TxtMinMB")
@@ -1617,6 +1767,68 @@ $BtnSetPassword.Add_Click({
     $nome=$TxtChgUser.Text.Trim(); $senha=$TxtChgPass.Password
     if (-not $nome -or -not $senha) { Write-Log "Preencha usuario e nova senha." "ERRO"; return }
     Invoke-Async { Invoke-SetPassword -Nome $N -Senha $S } -Vars @{N=$nome;S=$senha}
+})
+
+# --- Area de Trabalho ---
+
+# Carrega estado atual dos icones do sistema ao abrir
+$script:AllApps = @()
+try {
+    $iconState = Get-DesktopIconState
+    $ChkDtComputer.IsChecked = $iconState["Meu Computador"]
+    $ChkDtUser.IsChecked     = $iconState["Arquivos do Usuario"]
+    $ChkDtNetwork.IsChecked  = $iconState["Rede"]
+    $ChkDtRecycle.IsChecked  = $iconState["Lixeira"]
+    $ChkDtControl.IsChecked  = $iconState["Painel de Controle"]
+} catch {}
+
+$BtnAplicarIcones.Add_Click({
+    Invoke-Async {
+        Set-DesktopIconState "Meu Computador"      $States["Computer"]
+        Set-DesktopIconState "Arquivos do Usuario" $States["User"]
+        Set-DesktopIconState "Rede"                $States["Network"]
+        Set-DesktopIconState "Lixeira"             $States["Recycle"]
+        Set-DesktopIconState "Painel de Controle"  $States["Control"]
+        Write-Log "Icones da area de trabalho atualizados." "OK"
+    } -Vars @{ States = @{
+        Computer = [bool]$ChkDtComputer.IsChecked
+        User     = [bool]$ChkDtUser.IsChecked
+        Network  = [bool]$ChkDtNetwork.IsChecked
+        Recycle  = [bool]$ChkDtRecycle.IsChecked
+        Control  = [bool]$ChkDtControl.IsChecked
+    }}
+})
+
+# Carregar apps instalados
+$BtnCarregarApps.Add_Click({
+    $LvApps.Items.Clear()
+    $TxtAppCount.Text = "Carregando..."
+    $script:AllApps = Get-InstalledApps
+    foreach ($a in $script:AllApps) { [void]$LvApps.Items.Add($a) }
+    $TxtAppCount.Text = "$($script:AllApps.Count) app(s) encontrado(s)"
+    Write-Log "$($script:AllApps.Count) aplicativo(s) listado(s)." "OK"
+})
+
+# Filtro de busca em tempo real
+$TxtAppSearch.Add_TextChanged({
+    $filter = $TxtAppSearch.Text.Trim()
+    $LvApps.Items.Clear()
+    $filtered = if ($filter) {
+        $script:AllApps | Where-Object { $_.Nome -like "*$filter*" }
+    } else { $script:AllApps }
+    foreach ($a in $filtered) { [void]$LvApps.Items.Add($a) }
+    $TxtAppCount.Text = "$($LvApps.Items.Count) de $($script:AllApps.Count) app(s)"
+})
+
+# Criar atalho(s) selecionado(s)
+$BtnCriarAtalho.Add_Click({
+    $selecionados = @($LvApps.SelectedItems)
+    if ($selecionados.Count -eq 0) { Write-Log "Selecione ao menos um aplicativo." "AVISO"; return }
+    $caminhos = $selecionados | ForEach-Object { $_.Caminho }
+    Invoke-Async {
+        foreach ($c in $Caminhos) { New-DesktopShortcut -LnkSource $c }
+        Write-Log "$($Caminhos.Count) atalho(s) criado(s) na area de trabalho." "OK"
+    } -Vars @{ Caminhos = $caminhos }
 })
 
 # --- Armazenamento ---
