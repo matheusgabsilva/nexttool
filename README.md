@@ -1,56 +1,75 @@
 # NextTool
 
-Ferramenta de TI da Next — baseada na ideia do [WinUtil](https://github.com/christitustech/winutil) de Chris Titus Tech, adaptada para o ambiente corporativo da Next.
+Ferramenta de TI da Next — interface gráfica (WPF) para diagnóstico, manutenção e configuração de máquinas Windows no ambiente corporativo.
 
-> **v2.0** — Reescrita em CLI colorido (menu-driven), sem GUI. Leve, rápida, funciona em qualquer terminal PowerShell.
+> **v4.0** — Reescrita com GUI WPF (dark theme), execução assíncrona e log em tempo real.
 
 ## Execução via URL
 
 ```powershell
-irm "https://raw.githubusercontent.com/matheusgabsilva/nexttool/master/nexttool.ps1" | iex
+irm "https://raw.githubusercontent.com/matheusgabsilva/nexttool/main/nexttool.ps1" | iex
 ```
 
-> Execute em um terminal PowerShell. A ferramenta solicita elevação automaticamente.
+> Execute em um terminal PowerShell como **Administrador**. A ferramenta solicita elevação automaticamente se necessário.
 
 ---
 
 ## Funcionalidades
 
-### [1] Instalações
-| Software | Método |
-|---|---|
-| Adobe Acrobat Reader DC | winget |
-| WinRAR | winget |
-| AnyDesk | winget |
-| TeamViewer | winget |
-| Microsoft 365 | ODT |
-| Office 2021 Pro Plus VL | ODT |
-| Office 2016 Pro Plus VL | ODT |
+### Diagnóstico
+- Informações do sistema (CPU, RAM, disco, GPU, placa-mãe, BIOS)
+- Status do Windows Defender, Firewall e TPM
+- Últimos erros do Event Viewer (24h)
+- Top 10 processos por uso de CPU/RAM
+- Programas na inicialização
 
-Opção **[8]** permite instalar múltiplos de uma vez (ex: `1,2,3`).
-
-> Office 2021/2016 requer licença de volume (KMS/MAK) ou ativação manual.
-
-### [2] Tweaks
-- Desativar Hibernação (`powercfg -h off`)
-- Desativar Smart App Control (Windows 11)
-- Atualizar drivers via Windows Update (PSWindowsUpdate)
-- Aplicar todos em sequência
-
-### [3] Manutenção
-- Otimizar PC (temp, lixeira, `cleanmgr /sagerun:64`, flush DNS, relatório RAM/disco)
-- Diagnóstico (top 10 processos, inicialização, Defender, Firewall, Event Viewer 24h)
+### Manutenção
+- Limpeza de arquivos temporários e lixeira
 - SFC + DISM RestoreHealth
 - Flush DNS
-- Abrir pasta de relatórios
+- Windows Update (via PSWindowsUpdate)
+- Limpeza de disco (`cleanmgr`)
 
-### [4] Rede / Domínio
-- Listar adaptadores
+### Tweaks
+| Tweak | Descrição |
+|---|---|
+| Desativar Telemetria | Desliga coleta de dados da Microsoft |
+| Histórico de Atividades | Desativa rastreamento de atividades |
+| Rastreamento de Localização | Desliga GPS/localização do sistema |
+| Extensões de Arquivo | Exibe extensões no Explorador |
+| Arquivos Ocultos | Exibe arquivos e pastas ocultos |
+| NumLock na inicialização | Ativa NumLock automaticamente |
+| Encerrar Tarefa (barra) | Habilita "Encerrar Tarefa" no menu da barra |
+| Serviços desnecessários | Desativa SysMain, DiagTrack, WSearch |
+| Desativar Hibernação | `powercfg -h off` |
+| Smart App Control | Desativa (Windows 11) |
+| Desativar Suspender (Sleep) | Impede que o PC entre em suspensão |
+| Desativar Desligamento de Tela | Mantém a tela sempre ligada |
+| Performance Máxima | Ativa plano de energia Ultimate Performance |
+| Tema Escuro | Aplica dark mode no sistema e apps |
+| Desativar Widgets | Remove widgets da barra de tarefas |
+| Logon Detalhado | Exibe mensagens detalhadas na inicialização |
+
+> Botão **Padrão Next** marca automaticamente o conjunto de tweaks recomendado pela equipe.
+
+### Área de Trabalho
+- Adicionar/remover ícones do sistema (Meu Computador, Rede, Lixeira, etc.)
+- Gerenciar atalhos de aplicativos instalados na área de trabalho
+
+### Rede
+- Listar adaptadores de rede
 - Configurar DNS manualmente por adaptador
 - Resetar DNS para DHCP
-- Teste de conectividade (ping em 8.8.8.8 / 1.1.1.1 / google.com)
+- Teste de conectividade (ping 8.8.8.8 / 1.1.1.1 / google.com)
 - `ipconfig /all`
-- Ingresso em domínio AD com renomeação opcional
+
+### Domínio
+- Ingressar máquina em domínio Active Directory
+- Renomear o computador durante o ingresso
+
+### Usuários
+- Listar usuários locais
+- Criar, remover e redefinir senha de usuários locais
 
 ---
 
@@ -58,26 +77,17 @@ Opção **[8]** permite instalar múltiplos de uma vez (ex: `1,2,3`).
 
 - Windows 10 / 11
 - PowerShell 5.1+
-- Acesso à internet (para instalações e ODT)
-- Winget instalado (App Installer — instalado automaticamente se ausente)
+- Acesso à internet (para Windows Update)
 
 ---
 
-## Relatórios
+## Logs
 
-Logs coloridos são exibidos em tela e persistidos em:
+Logs são exibidos em tempo real na interface e salvos em:
 
 ```
 C:\Next-Relatorios\nexttool_<PC>_<yyyy-MM-dd_HH-mm-ss>.log
 ```
-
----
-
-## Roadmap
-
-- [ ] Integração com servidor de arquivos interno (`\\servidor\instaladores`)
-- [ ] Perfil de instalação padrão por tipo de máquina
-- [ ] Exportar relatório em PDF
 
 ---
 
