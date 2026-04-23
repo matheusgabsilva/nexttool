@@ -1239,66 +1239,72 @@ function Invoke-Async {
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
           </Grid.RowDefinitions>
 
           <!-- Icones do sistema -->
           <GroupBox Grid.Row="0" Header="Ícones do Sistema" Margin="16,12,16,0">
             <StackPanel Margin="4,6">
               <WrapPanel>
-                <CheckBox x:Name="ChkDtComputer"  Content="🖥  Meu Computador"      Width="200" Margin="0,0,10,6"/>
-                <CheckBox x:Name="ChkDtUser"      Content="👤  Arquivos do Usuário" Width="200" Margin="0,0,10,6"/>
-                <CheckBox x:Name="ChkDtNetwork"   Content="🌐  Rede"                Width="200" Margin="0,0,10,6"/>
-                <CheckBox x:Name="ChkDtRecycle"   Content="🗑  Lixeira"             Width="200" Margin="0,0,10,6"/>
-                <CheckBox x:Name="ChkDtControl"   Content="⚙  Painel de Controle"  Width="200" Margin="0,0,10,6"/>
+                <CheckBox x:Name="ChkDtComputer" Content="🖥  Meu Computador"      Width="210" Margin="0,0,10,6"/>
+                <CheckBox x:Name="ChkDtUser"     Content="👤  Arquivos do Usuário" Width="210" Margin="0,0,10,6"/>
+                <CheckBox x:Name="ChkDtNetwork"  Content="🌐  Rede"                Width="210" Margin="0,0,10,6"/>
+                <CheckBox x:Name="ChkDtRecycle"  Content="🗑  Lixeira"             Width="210" Margin="0,0,10,6"/>
+                <CheckBox x:Name="ChkDtControl"  Content="⚙  Painel de Controle"  Width="210" Margin="0,0,10,6"/>
               </WrapPanel>
               <Button x:Name="BtnAplicarIcones" Content="Aplicar Ícones"
                       HorizontalAlignment="Left" Background="#61AFEF" Foreground="#1E2128"
-                      Padding="14,6" Margin="0,6,0,0"/>
+                      Padding="14,6" Margin="0,8,0,0"/>
             </StackPanel>
           </GroupBox>
 
           <!-- Apps instalados -->
-          <Grid Grid.Row="1" Margin="16,10,16,12">
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto"/>
-              <RowDefinition Height="*"/>
-              <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+          <GroupBox Grid.Row="1" Header="Atalhos de Aplicativos" Margin="16,10,16,0">
+            <Grid>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+              </Grid.RowDefinitions>
 
-            <!-- Barra de busca -->
-            <Grid Grid.Row="0" Margin="0,0,0,8">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-              </Grid.ColumnDefinitions>
-              <TextBox x:Name="TxtAppSearch" Grid.Column="0"
-                       Margin="0,0,8,0" FontSize="12"/>
-              <TextBlock Text="🔍" Grid.Column="0"
-                         Foreground="#5C6370" FontSize="13"
-                         HorizontalAlignment="Right" VerticalAlignment="Center"
-                         Margin="0,0,16,0" IsHitTestVisible="False"/>
-              <Button x:Name="BtnCarregarApps" Grid.Column="1"
-                      Content="🔄 Carregar Apps" Background="#4B5263" Foreground="#ABB2BF" Padding="12,5"/>
+              <!-- Barra superior -->
+              <Grid Grid.Row="0" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="TxtAppSearch" Grid.Column="0" Margin="0,0,8,0"
+                         FontSize="12"/>
+                <TextBlock Text="🔍" Grid.Column="0" Foreground="#5C6370" FontSize="13"
+                           HorizontalAlignment="Right" VerticalAlignment="Center"
+                           Margin="0,0,16,0" IsHitTestVisible="False"/>
+                <Button x:Name="BtnCarregarApps"  Grid.Column="1" Content="🔄 Carregar"
+                        Background="#4B5263" Foreground="#ABB2BF" Padding="10,5" Margin="0,0,6,0"/>
+                <Button x:Name="BtnMarcarTodos"   Grid.Column="2" Content="Marcar Todos"
+                        Background="#4B5263" Foreground="#ABB2BF" Padding="10,5" Margin="0,0,6,0"/>
+                <Button x:Name="BtnDesmarcarTodos" Grid.Column="3" Content="Desmarcar"
+                        Background="#4B5263" Foreground="#ABB2BF" Padding="10,5"/>
+              </Grid>
+
+              <!-- Grade de checkboxes (igual ao painel de icones do sistema) -->
+              <Border Grid.Row="1" Background="#1E2128" BorderBrush="#3E4451" BorderThickness="1" CornerRadius="4">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                  <WrapPanel x:Name="AppCheckPanel" Margin="10,8" Orientation="Horizontal"/>
+                </ScrollViewer>
+              </Border>
             </Grid>
+          </GroupBox>
 
-            <!-- Lista de apps -->
-            <ListView x:Name="LvApps" Grid.Row="1" SelectionMode="Extended">
-              <ListView.View>
-                <GridView>
-                  <GridViewColumn Header="Aplicativo" DisplayMemberBinding="{Binding Nome}"   Width="340"/>
-                  <GridViewColumn Header="Origem"     DisplayMemberBinding="{Binding Origem}" Width="90"/>
-                </GridView>
-              </ListView.View>
-            </ListView>
-
-            <!-- Botoes -->
-            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
-              <Button x:Name="BtnCriarAtalho" Content="➕  Criar Atalho na Área de Trabalho"
-                      Background="#98C379" Foreground="#1E2128" Padding="14,7" Margin="0,0,10,0"/>
+          <!-- Rodape -->
+          <Border Grid.Row="2" Background="#1E2128" Padding="16,10">
+            <StackPanel Orientation="Horizontal">
+              <Button x:Name="BtnCriarAtalho" Content="➕  Criar Atalhos Selecionados"
+                      Background="#98C379" Foreground="#1E2128" Padding="14,7" Margin="0,0,14,0"/>
               <TextBlock x:Name="TxtAppCount" Foreground="#5C6370" FontSize="11"
                          VerticalAlignment="Center"/>
             </StackPanel>
-          </Grid>
+          </Border>
 
         </Grid>
       </TabItem>
@@ -1480,9 +1486,11 @@ $ChkDtNetwork       = $Window.FindName("ChkDtNetwork")
 $ChkDtRecycle       = $Window.FindName("ChkDtRecycle")
 $ChkDtControl       = $Window.FindName("ChkDtControl")
 $BtnAplicarIcones   = $Window.FindName("BtnAplicarIcones")
-$LvApps             = $Window.FindName("LvApps")
 $TxtAppSearch       = $Window.FindName("TxtAppSearch")
 $BtnCarregarApps    = $Window.FindName("BtnCarregarApps")
+$AppCheckPanel      = $Window.FindName("AppCheckPanel")
+$BtnMarcarTodos     = $Window.FindName("BtnMarcarTodos")
+$BtnDesmarcarTodos  = $Window.FindName("BtnDesmarcarTodos")
 $BtnCriarAtalho     = $Window.FindName("BtnCriarAtalho")
 $TxtAppCount        = $Window.FindName("TxtAppCount")
 $DrivePanel         = $Window.FindName("DrivePanel")
@@ -1799,32 +1807,50 @@ $BtnAplicarIcones.Add_Click({
     }}
 })
 
+# Helper: reconstroi checkboxes no painel conforme filtro
+function Update-AppCheckPanel {
+    param([string]$Filter = "")
+    $AppCheckPanel.Children.Clear()
+    $filtered = if ($Filter) {
+        $script:AllApps | Where-Object { $_.Nome -like "*$Filter*" }
+    } else { $script:AllApps }
+    foreach ($app in $filtered) {
+        $chk = New-Object System.Windows.Controls.CheckBox
+        $chk.Content   = $app.Nome
+        $chk.Tag       = $app.Caminho
+        $chk.Width     = 220
+        $chk.Margin    = [System.Windows.Thickness]::new(0, 0, 10, 6)
+        $chk.Foreground= [System.Windows.Media.BrushConverter]::new().ConvertFrom("#ABB2BF")
+        $chk.Cursor    = [System.Windows.Input.Cursors]::Hand
+        $chk.ToolTip   = $app.Caminho
+        [void]$AppCheckPanel.Children.Add($chk)
+    }
+    $TxtAppCount.Text = "$($AppCheckPanel.Children.Count) de $($script:AllApps.Count) app(s)"
+}
+
 # Carregar apps instalados
 $BtnCarregarApps.Add_Click({
-    $LvApps.Items.Clear()
     $TxtAppCount.Text = "Carregando..."
-    $script:AllApps = Get-InstalledApps
-    foreach ($a in $script:AllApps) { [void]$LvApps.Items.Add($a) }
-    $TxtAppCount.Text = "$($script:AllApps.Count) app(s) encontrado(s)"
+    $script:AllApps   = Get-InstalledApps
+    Update-AppCheckPanel
     Write-Log "$($script:AllApps.Count) aplicativo(s) listado(s)." "OK"
 })
 
-# Filtro de busca em tempo real
-$TxtAppSearch.Add_TextChanged({
-    $filter = $TxtAppSearch.Text.Trim()
-    $LvApps.Items.Clear()
-    $filtered = if ($filter) {
-        $script:AllApps | Where-Object { $_.Nome -like "*$filter*" }
-    } else { $script:AllApps }
-    foreach ($a in $filtered) { [void]$LvApps.Items.Add($a) }
-    $TxtAppCount.Text = "$($LvApps.Items.Count) de $($script:AllApps.Count) app(s)"
+# Filtro em tempo real
+$TxtAppSearch.Add_TextChanged({ Update-AppCheckPanel -Filter $TxtAppSearch.Text.Trim() })
+
+# Marcar / Desmarcar todos
+$BtnMarcarTodos.Add_Click({
+    $AppCheckPanel.Children | ForEach-Object { $_.IsChecked = $true }
+})
+$BtnDesmarcarTodos.Add_Click({
+    $AppCheckPanel.Children | ForEach-Object { $_.IsChecked = $false }
 })
 
-# Criar atalho(s) selecionado(s)
+# Criar atalhos marcados
 $BtnCriarAtalho.Add_Click({
-    $selecionados = @($LvApps.SelectedItems)
-    if ($selecionados.Count -eq 0) { Write-Log "Selecione ao menos um aplicativo." "AVISO"; return }
-    $caminhos = $selecionados | ForEach-Object { $_.Caminho }
+    $caminhos = @($AppCheckPanel.Children | Where-Object { $_.IsChecked } | ForEach-Object { $_.Tag })
+    if ($caminhos.Count -eq 0) { Write-Log "Marque ao menos um aplicativo." "AVISO"; return }
     Invoke-Async {
         foreach ($c in $Caminhos) { New-DesktopShortcut -LnkSource $c }
         Write-Log "$($Caminhos.Count) atalho(s) criado(s) na area de trabalho." "OK"
