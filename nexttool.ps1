@@ -296,6 +296,23 @@ function Invoke-LimparCacheWindowsUpdate {
     Write-Log "Cache do Windows Update limpo." "OK"
 }
 
+function Invoke-LimparSpooler {
+    Write-Log "=== LIMPAR FILA DE IMPRESSAO ===" "STEP"
+    Write-Log "Parando servico Spooler..." "INFO"
+    Stop-Service Spooler -Force -ErrorAction SilentlyContinue
+    $dir = "$env:SystemRoot\System32\spool\PRINTERS"
+    $arquivos = Get-ChildItem -Path $dir -Recurse -ErrorAction SilentlyContinue
+    if ($arquivos) {
+        Remove-Item "$dir\*" -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Log "$($arquivos.Count) arquivo(s) removido(s) da fila." "OK"
+    } else {
+        Write-Log "Fila ja estava vazia." "INFO"
+    }
+    Start-Service Spooler -ErrorAction SilentlyContinue
+    Write-Log "Servico Spooler reiniciado." "OK"
+    Write-Log "Fila de impressao limpa com sucesso." "OK"
+}
+
 function Invoke-GpUpdate {
     Write-Log "=== GPUPDATE /FORCE ===" "STEP"
     $out = gpupdate /force 2>&1 | Out-String
@@ -821,7 +838,7 @@ $script:FuncNames = @(
     'Invoke-TweakSuspender','Invoke-TweakTela',
     'Invoke-TweakUltimatePerf','Invoke-TweakDarkTheme','Invoke-TweakWidgets','Invoke-TweakVerboseLogon',
     'Invoke-TweakDrivers','Invoke-OtimizarPC','Invoke-SFCDISM','Invoke-CheckDisk',
-    'Invoke-ResetWinsock','Invoke-LimparCacheWindowsUpdate','Invoke-GpUpdate','Invoke-RestartExplorer',
+    'Invoke-ResetWinsock','Invoke-LimparCacheWindowsUpdate','Invoke-LimparSpooler','Invoke-GpUpdate','Invoke-RestartExplorer',
     'Invoke-Diagnostico',
     'Get-NicConfig','Show-Adapters','Invoke-SetDNS','Invoke-ResetDNS','Invoke-RenovarDHCP',
     'Invoke-TestarConectividade','Show-IPConfig','Invoke-RenomearPC','Invoke-JoinDomain',
@@ -1083,6 +1100,7 @@ function Invoke-Async {
                 <Button x:Name="BtnLimparWU"    Content="🗑 Limpar Cache WU"       Width="175" Height="64" Margin="0,0,10,10"/>
                 <Button x:Name="BtnFlushDns"    Content="🌐 Flush DNS"             Width="175" Height="64" Margin="0,0,10,10"/>
                 <Button x:Name="BtnResetWinsock" Content="🔄 Reset Winsock/IP"     Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnLimparSpooler" Content="🖨️ Limpar Fila de Impressão" Width="175" Height="64" Margin="0,0,10,10"/>
               </WrapPanel>
             </GroupBox>
 
@@ -1483,6 +1501,7 @@ $BtnOtimizar        = $Window.FindName("BtnOtimizar")
 $BtnSfcDism         = $Window.FindName("BtnSfcDism")
 $BtnCheckDisk       = $Window.FindName("BtnCheckDisk")
 $BtnLimparWU        = $Window.FindName("BtnLimparWU")
+$BtnLimparSpooler   = $Window.FindName("BtnLimparSpooler")
 $BtnFlushDns        = $Window.FindName("BtnFlushDns")
 $BtnResetWinsock    = $Window.FindName("BtnResetWinsock")
 $BtnGpUpdate        = $Window.FindName("BtnGpUpdate")
@@ -1706,6 +1725,7 @@ $BtnOtimizar.Add_Click({         Invoke-Async { Invoke-OtimizarPC } })
 $BtnSfcDism.Add_Click({          Invoke-Async { Invoke-SFCDISM } })
 $BtnCheckDisk.Add_Click({        Invoke-Async { Invoke-CheckDisk "C:" } })
 $BtnLimparWU.Add_Click({         Invoke-Async { Invoke-LimparCacheWindowsUpdate } })
+$BtnLimparSpooler.Add_Click({   Invoke-Async { Invoke-LimparSpooler } })
 $BtnFlushDns.Add_Click({         Invoke-Async { ipconfig /flushdns | Out-Null; Write-Log "Cache DNS limpo." "OK" } })
 $BtnResetWinsock.Add_Click({     Invoke-Async { Invoke-ResetWinsock } })
 $BtnGpUpdate.Add_Click({         Invoke-Async { Invoke-GpUpdate } })
