@@ -296,6 +296,132 @@ function Invoke-LimparCacheWindowsUpdate {
     Write-Log "Cache do Windows Update limpo." "OK"
 }
 
+function Invoke-ReinstalarImpressoras {
+    Write-Log "=== REINSTALAR DRIVERS DE IMPRESSORA ===" "STEP"
+    $impressoras = Get-Printer -ErrorAction SilentlyContinue
+    if (-not $impressoras) { Write-Log "Nenhuma impressora encontrada." "AVISO"; return }
+    foreach ($imp in $impressoras) {
+        Write-Log "Removendo: $($imp.Name)..." "INFO"
+        Remove-Printer -Name $imp.Name -ErrorAction SilentlyContinue
+    }
+    Write-Log "Impressoras removidas. Redescobindo via PnP..." "INFO"
+    pnputil /scan-devices | Out-Null
+    Start-Sleep -Seconds 3
+    $novas = Get-Printer -ErrorAction SilentlyContinue
+    if ($novas) {
+        $novas | ForEach-Object { Write-Log "Encontrada: $($_.Name)" "OK" }
+    } else {
+        Write-Log "Nenhuma impressora redescoberta automaticamente. Reconecte o dispositivo." "AVISO"
+    }
+    Write-Log "Reinstalacao de impressoras concluida." "OK"
+}
+
+function Invoke-RenovarIP {
+    Write-Log "=== RENOVAR ENDERECO IP (DHCP) ===" "STEP"
+    Write-Log "Liberando IP atual..." "INFO"
+    ipconfig /release 2>&1 | Out-Null
+    Write-Log "Solicitando novo IP..." "INFO"
+    ipconfig /renew 2>&1 | Out-Null
+    ipconfig /flushdns 2>&1 | Out-Null
+    $ip = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceIndex (
+        Get-NetRoute -DestinationPrefix "0.0.0.0/0" | Sort-Object RouteMetric | Select-Object -First 1 -ExpandProperty InterfaceIndex
+    ) -ErrorAction SilentlyContinue).IPAddress
+    if ($ip) { Write-Log "Novo IP obtido: $ip" "OK" }
+    Write-Log "IP renovado com sucesso." "OK"
+}
+
+function Invoke-ResetarProxy {
+    Write-Log "=== RESETAR CONFIGURACOES DE PROXY ===" "STEP"
+    $path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+    Set-ItemProperty -Path $path -Name ProxyEnable      -Value 0 -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $path -Name ProxyServer       -Value "" -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $path -Name ProxyOverride     -Value "" -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $path -Name AutoConfigURL     -Value "" -ErrorAction SilentlyContinue
+    netsh winhttp reset proxy 2>&1 | Out-Null
+    Write-Log "Proxy do WinInet desativado." "OK"
+    Write-Log "Proxy do WinHTTP resetado." "OK"
+    Write-Log "Configuracoes de proxy limpas com sucesso." "OK"
+}
+
+function Invoke-SincronizarHora {
+    Write-Log "=== SINCRONIZAR HORA DO SISTEMA ===" "STEP"
+    $svc = Get-Service -Name W32Time -ErrorAction SilentlyContinue
+    if (-not $svc) { Write-Log "Servico W32Time nao encontrado." "ERRO"; return }
+    if ($svc.Status -ne 'Running') {
+        Start-Service W32Time -ErrorAction SilentlyContinue
+        Write-Log "Servico W32Time iniciado." "INFO"
+    }
+    w32tm /resync /force 2>&1 | ForEach-Object { if ($_) { Write-Log $_ "INFO" } }
+    $hora = Get-Date -Format "dd/MM/yyyy HH:mm:ss"
+    Write-Log "Hora atual do sistema: $hora" "OK"
+    Write-Log "Sincronizacao de hora concluida." "OK"
+}
+
+function Invoke-LimparMiniaturas {
+    Write-Log "=== LIMPAR CACHE DE MINIATURAS ===" "STEP"
+    $dir = "$env:LocalAppData\Microsoft\Windows\Explorer"
+    $arquivos = Get-ChildItem -Path $dir -Filter "thumbcache_*.db" -ErrorAction SilentlyContinue
+    if (-not $arquivos) { Write-Log "Cache de miniaturas ja estava vazio." "INFO"; return }
+    $total = $arquivos.Count
+    $bytes = ($arquivos | Measure-Object -Property Length -Sum).Sum
+    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 800
+    $removidos = 0
+    foreach ($f in $arquivos) {
+        Remove-Item $f.FullName -Force -ErrorAction SilentlyContinue
+        if (-not (Test-Path $f.FullName)) { $removidos++ }
+    }
+    Start-Process explorer.exe
+    $mb = [math]::Round($bytes / 1MB, 2)
+    Write-Log "$removidos de $total arquivo(s) removido(s) ($mb MB liberados)." "OK"
+    Write-Log "Cache de miniaturas limpo. Explorer reiniciado." "OK"
+}
+
+function Invoke-LimparCredenciais {
+    Write-Log "=== LIMPAR CREDENCIAIS SALVAS ===" "STEP"
+    $creds = cmdkey /list 2>&1 | Select-String "Destino:" | ForEach-Object { ($_ -split "Destino:\s*")[1].Trim() }
+    if (-not $creds) {
+        # Tentar em ingles
+        $creds = cmdkey /list 2>&1 | Select-String "Target:" | ForEach-Object { ($_ -split "Target:\s*")[1].Trim() }
+    }
+    if (-not $creds) { Write-Log "Nenhuma credencial salva encontrada." "INFO"; return }
+    $count = 0
+    foreach ($c in $creds) {
+        if ($c) {
+            cmdkey /delete:$c 2>&1 | Out-Null
+            Write-Log "Removida: $c" "INFO"
+            $count++
+        }
+    }
+    Write-Log "$count credencial(is) removida(s) com sucesso." "OK"
+}
+
+function Invoke-LimparCacheTeamsOffice {
+    Write-Log "=== LIMPAR CACHE DO TEAMS E OFFICE ===" "STEP"
+    $caminhos = @{
+        "Teams (novo)"   = "$env:LocalAppData\Packages\MSTeams_8wekyb3d8bbwe\LocalCache"
+        "Teams (classico)" = "$env:AppData\Microsoft\Teams\Cache"
+        "Teams tmp"      = "$env:AppData\Microsoft\Teams\blob_storage"
+        "Teams databases"= "$env:AppData\Microsoft\Teams\databases"
+        "Office cache"   = "$env:LocalAppData\Microsoft\Office\16.0\OfficeFileCache"
+        "Outlook cache"  = "$env:LocalAppData\Microsoft\Outlook\RoamCache"
+    }
+    $totalMB = 0
+    foreach ($item in $caminhos.GetEnumerator()) {
+        if (Test-Path $item.Value) {
+            $size = (Get-ChildItem $item.Value -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum
+            Remove-Item "$($item.Value)\*" -Recurse -Force -ErrorAction SilentlyContinue
+            $mb = [math]::Round($size / 1MB, 2)
+            $totalMB += $mb
+            Write-Log "$($item.Key): $mb MB liberados." "OK"
+        } else {
+            Write-Log "$($item.Key): nao encontrado." "INFO"
+        }
+    }
+    Write-Log "Total liberado: $([math]::Round($totalMB, 2)) MB." "OK"
+    Write-Log "Cache do Teams/Office limpo. Reinicie os apps se necessario." "OK"
+}
+
 function Invoke-LimparSpooler {
     Write-Log "=== LIMPAR FILA DE IMPRESSAO ===" "STEP"
     Write-Log "Parando servico Spooler..." "INFO"
@@ -838,7 +964,10 @@ $script:FuncNames = @(
     'Invoke-TweakSuspender','Invoke-TweakTela',
     'Invoke-TweakUltimatePerf','Invoke-TweakDarkTheme','Invoke-TweakWidgets','Invoke-TweakVerboseLogon',
     'Invoke-TweakDrivers','Invoke-OtimizarPC','Invoke-SFCDISM','Invoke-CheckDisk',
-    'Invoke-ResetWinsock','Invoke-LimparCacheWindowsUpdate','Invoke-LimparSpooler','Invoke-GpUpdate','Invoke-RestartExplorer',
+    'Invoke-ResetWinsock','Invoke-LimparCacheWindowsUpdate','Invoke-LimparSpooler','Invoke-ReinstalarImpressoras',
+    'Invoke-RenovarIP','Invoke-ResetarProxy','Invoke-SincronizarHora',
+    'Invoke-LimparMiniaturas','Invoke-LimparCredenciais','Invoke-LimparCacheTeamsOffice',
+    'Invoke-GpUpdate','Invoke-RestartExplorer',
     'Invoke-Diagnostico',
     'Get-NicConfig','Show-Adapters','Invoke-SetDNS','Invoke-ResetDNS','Invoke-RenovarDHCP',
     'Invoke-TestarConectividade','Show-IPConfig','Invoke-RenomearPC','Invoke-JoinDomain',
@@ -1092,22 +1221,39 @@ function Invoke-Async {
         <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#21252B">
           <StackPanel Margin="20,16">
 
-            <GroupBox Header="Limpeza e Reparo">
+            <GroupBox Header="Limpeza">
               <WrapPanel Margin="4,4">
-                <Button x:Name="BtnOtimizar"    Content="🧹 Otimizar PC"           Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnSfcDism"     Content="🔧 SFC + DISM"            Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnCheckDisk"   Content="💽 Verificar Disco (C:)"  Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnLimparWU"    Content="🗑 Limpar Cache WU"       Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnFlushDns"    Content="🌐 Flush DNS"             Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnResetWinsock" Content="🔄 Reset Winsock/IP"     Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnLimparSpooler" Content="🖨️ Limpar Fila de Impressão" Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnOtimizar"           Content="🧹 Otimizar PC"              Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnSfcDism"            Content="🔧 SFC + DISM"               Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnCheckDisk"          Content="💽 Verificar Disco (C:)"     Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnLimparWU"           Content="🗑️ Limpar Cache WU"          Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnLimparMiniaturas"   Content="🖼️ Limpar Cache Miniaturas"  Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnLimparCredenciais"  Content="🔑 Limpar Credenciais"       Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnLimparTeamsOffice"  Content="💬 Limpar Cache Teams/Office" Width="175" Height="64" Margin="0,0,10,10"/>
+              </WrapPanel>
+            </GroupBox>
+
+            <GroupBox Header="Rede">
+              <WrapPanel Margin="4,4">
+                <Button x:Name="BtnFlushDns"      Content="🌐 Flush DNS"           Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnResetWinsock"  Content="🔄 Reset Winsock/IP"    Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnRenovarIP"     Content="📡 Renovar IP (DHCP)"   Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnResetarProxy"  Content="🔒 Resetar Proxy"       Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnSincronizarHora" Content="🕐 Sincronizar Hora"  Width="175" Height="64" Margin="0,0,10,10"/>
+              </WrapPanel>
+            </GroupBox>
+
+            <GroupBox Header="Impressão">
+              <WrapPanel Margin="4,4">
+                <Button x:Name="BtnLimparSpooler"      Content="🖨️ Limpar Fila de Impressão"   Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnReinstalarImpressoras" Content="🖨️ Reinstalar Impressoras"  Width="175" Height="64" Margin="0,0,10,10"/>
               </WrapPanel>
             </GroupBox>
 
             <GroupBox Header="Sistema">
               <WrapPanel Margin="4,4">
-                <Button x:Name="BtnGpUpdate"       Content="📋 gpupdate /force"      Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnRestartExplorer" Content="🔃 Reiniciar Explorer"  Width="175" Height="64" Margin="0,0,10,10"
+                <Button x:Name="BtnGpUpdate"        Content="📋 gpupdate /force"    Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnRestartExplorer" Content="🔃 Reiniciar Explorer" Width="175" Height="64" Margin="0,0,10,10"
                         Background="#E5C07B" Foreground="#1E2128"/>
               </WrapPanel>
             </GroupBox>
@@ -1500,8 +1646,15 @@ $BtnAtualizarDrivers= $Window.FindName("BtnAtualizarDrivers")
 $BtnOtimizar        = $Window.FindName("BtnOtimizar")
 $BtnSfcDism         = $Window.FindName("BtnSfcDism")
 $BtnCheckDisk       = $Window.FindName("BtnCheckDisk")
-$BtnLimparWU        = $Window.FindName("BtnLimparWU")
-$BtnLimparSpooler   = $Window.FindName("BtnLimparSpooler")
+$BtnLimparWU              = $Window.FindName("BtnLimparWU")
+$BtnLimparSpooler         = $Window.FindName("BtnLimparSpooler")
+$BtnReinstalarImpressoras = $Window.FindName("BtnReinstalarImpressoras")
+$BtnRenovarIP             = $Window.FindName("BtnRenovarIP")
+$BtnResetarProxy          = $Window.FindName("BtnResetarProxy")
+$BtnSincronizarHora       = $Window.FindName("BtnSincronizarHora")
+$BtnLimparMiniaturas      = $Window.FindName("BtnLimparMiniaturas")
+$BtnLimparCredenciais     = $Window.FindName("BtnLimparCredenciais")
+$BtnLimparTeamsOffice     = $Window.FindName("BtnLimparTeamsOffice")
 $BtnFlushDns        = $Window.FindName("BtnFlushDns")
 $BtnResetWinsock    = $Window.FindName("BtnResetWinsock")
 $BtnGpUpdate        = $Window.FindName("BtnGpUpdate")
@@ -1724,10 +1877,17 @@ $BtnRelatorio.Add_Click({        Start-Process explorer.exe $script:REPORT_DIR }
 $BtnOtimizar.Add_Click({         Invoke-Async { Invoke-OtimizarPC } })
 $BtnSfcDism.Add_Click({          Invoke-Async { Invoke-SFCDISM } })
 $BtnCheckDisk.Add_Click({        Invoke-Async { Invoke-CheckDisk "C:" } })
-$BtnLimparWU.Add_Click({         Invoke-Async { Invoke-LimparCacheWindowsUpdate } })
-$BtnLimparSpooler.Add_Click({   Invoke-Async { Invoke-LimparSpooler } })
-$BtnFlushDns.Add_Click({         Invoke-Async { ipconfig /flushdns | Out-Null; Write-Log "Cache DNS limpo." "OK" } })
-$BtnResetWinsock.Add_Click({     Invoke-Async { Invoke-ResetWinsock } })
+$BtnLimparWU.Add_Click({              Invoke-Async { Invoke-LimparCacheWindowsUpdate } })
+$BtnLimparMiniaturas.Add_Click({      Invoke-Async { Invoke-LimparMiniaturas } })
+$BtnLimparCredenciais.Add_Click({     Invoke-Async { Invoke-LimparCredenciais } })
+$BtnLimparTeamsOffice.Add_Click({     Invoke-Async { Invoke-LimparCacheTeamsOffice } })
+$BtnFlushDns.Add_Click({              Invoke-Async { ipconfig /flushdns | Out-Null; Write-Log "Cache DNS limpo." "OK" } })
+$BtnResetWinsock.Add_Click({          Invoke-Async { Invoke-ResetWinsock } })
+$BtnRenovarIP.Add_Click({             Invoke-Async { Invoke-RenovarIP } })
+$BtnResetarProxy.Add_Click({          Invoke-Async { Invoke-ResetarProxy } })
+$BtnSincronizarHora.Add_Click({       Invoke-Async { Invoke-SincronizarHora } })
+$BtnLimparSpooler.Add_Click({         Invoke-Async { Invoke-LimparSpooler } })
+$BtnReinstalarImpressoras.Add_Click({ Invoke-Async { Invoke-ReinstalarImpressoras } })
 $BtnGpUpdate.Add_Click({         Invoke-Async { Invoke-GpUpdate } })
 $BtnRestartExplorer.Add_Click({  Invoke-Async { Invoke-RestartExplorer } })
 
