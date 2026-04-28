@@ -7,7 +7,7 @@ Ferramenta de TI da Next — interface gráfica (WPF) para diagnóstico, manuten
 ## Execução via URL
 
 ```powershell
-irm "https://raw.githubusercontent.com/matheusgabsilva/nexttool/main/nexttool.ps1" | iex
+irm nexttool.matheusgabsilva.digital | iex
 ```
 
 > Execute em um terminal PowerShell como **Administrador**. A ferramenta solicita elevação automaticamente se necessário.
