@@ -1227,9 +1227,15 @@ function Invoke-Async {
                 <Button x:Name="BtnSfcDism"            Content="🔧 SFC + DISM"               Width="175" Height="64" Margin="0,0,10,10"/>
                 <Button x:Name="BtnCheckDisk"          Content="💽 Verificar Disco (C:)"     Width="175" Height="64" Margin="0,0,10,10"/>
                 <Button x:Name="BtnLimparWU"           Content="🗑️ Limpar Cache WU"          Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnLimparMiniaturas"   Content="🖼️ Limpar Cache Miniaturas"  Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnLimparCredenciais"  Content="🔑 Limpar Credenciais"       Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnLimparTeamsOffice"  Content="💬 Limpar Cache Teams/Office" Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnLimparMiniaturas"  Width="190" Height="64" Margin="0,0,10,10">
+                  <TextBlock Text="🖼️ Limpar Cache Miniaturas" TextWrapping="Wrap" TextAlignment="Center"/>
+                </Button>
+                <Button x:Name="BtnLimparCredenciais" Width="190" Height="64" Margin="0,0,10,10">
+                  <TextBlock Text="🔑 Limpar Credenciais" TextWrapping="Wrap" TextAlignment="Center"/>
+                </Button>
+                <Button x:Name="BtnLimparTeamsOffice" Width="190" Height="64" Margin="0,0,10,10">
+                  <TextBlock Text="💬 Limpar Cache Teams/Office" TextWrapping="Wrap" TextAlignment="Center"/>
+                </Button>
               </WrapPanel>
             </GroupBox>
 
@@ -1245,8 +1251,12 @@ function Invoke-Async {
 
             <GroupBox Header="Impressão">
               <WrapPanel Margin="4,4">
-                <Button x:Name="BtnLimparSpooler"      Content="🖨️ Limpar Fila de Impressão"   Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnReinstalarImpressoras" Content="🖨️ Reinstalar Impressoras"  Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnLimparSpooler"         Width="190" Height="64" Margin="0,0,10,10">
+                  <TextBlock Text="🖨️ Limpar Fila de Impressão" TextWrapping="Wrap" TextAlignment="Center"/>
+                </Button>
+                <Button x:Name="BtnReinstalarImpressoras" Width="190" Height="64" Margin="0,0,10,10">
+                  <TextBlock Text="🖨️ Reinstalar Impressoras" TextWrapping="Wrap" TextAlignment="Center"/>
+                </Button>
               </WrapPanel>
             </GroupBox>
 
