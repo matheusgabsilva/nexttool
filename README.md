@@ -2,7 +2,7 @@
 
 Ferramenta de TI da Next — interface gráfica (WPF) para diagnóstico, manutenção e configuração de máquinas Windows no ambiente corporativo.
 
-> **v4.0** — Reescrita com GUI WPF (dark theme), execução assíncrona e log em tempo real.
+> **v4.1** — Reescrita com GUI WPF (dark theme), execução assíncrona e log em tempo real.
 
 ## Execução via URL
 
@@ -24,11 +24,38 @@ irm nexttool.matheusgabsilva.digital | iex
 - Programas na inicialização
 
 ### Manutenção
-- Limpeza de arquivos temporários e lixeira
-- SFC + DISM RestoreHealth
-- Flush DNS
-- Windows Update (via PSWindowsUpdate)
-- Limpeza de disco (`cleanmgr`)
+
+#### 🧹 Limpeza
+| Botão | Descrição |
+|---|---|
+| Otimizar PC | Limpa temporários, lixeira, `cleanmgr`, flush DNS |
+| SFC + DISM | Verifica e repara arquivos do sistema |
+| Verificar Disco (C:) | Agenda `chkdsk` na próxima inicialização |
+| Limpar Cache WU | Para serviços, limpa `SoftwareDistribution\Download` e reinicia |
+| Limpar Cache Miniaturas | Remove `thumbcache_*.db` do Explorer, mostra MB liberados |
+| Limpar Credenciais | Remove todas as entradas salvas no Credential Manager |
+| Limpar Cache Teams/Office | Limpa cache do Teams (novo e clássico), Office e Outlook |
+
+#### 🌐 Rede
+| Botão | Descrição |
+|---|---|
+| Flush DNS | `ipconfig /flushdns` |
+| Reset Winsock/IP | Reseta pilha TCP/IP e Winsock |
+| Renovar IP (DHCP) | `ipconfig /release` + `/renew`, exibe novo IP obtido |
+| Resetar Proxy | Limpa proxy do WinInet (registro) e WinHTTP |
+| Sincronizar Hora | `w32tm /resync /force`, exibe hora atualizada |
+
+#### 🖨️ Impressão
+| Botão | Descrição |
+|---|---|
+| Limpar Fila de Impressão | Para Spooler, limpa pasta `PRINTERS`, reinicia serviço |
+| Reinstalar Impressoras | Remove impressoras e força redescoberta via PnP |
+
+#### ⚙️ Sistema
+| Botão | Descrição |
+|---|---|
+| gpupdate /force | Força atualização de políticas de grupo |
+| Reiniciar Explorer | Encerra e reinicia o Windows Explorer |
 
 ### Tweaks
 | Tweak | Descrição |
@@ -43,8 +70,8 @@ irm nexttool.matheusgabsilva.digital | iex
 | Serviços desnecessários | Desativa SysMain, DiagTrack, WSearch |
 | Desativar Hibernação | `powercfg -h off` |
 | Smart App Control | Desativa (Windows 11) |
-| Desativar Suspender (Sleep) | Impede que o PC entre em suspensão |
-| Desativar Desligamento de Tela | Mantém a tela sempre ligada |
+| Desativar Suspender (Sleep) | Impede que o PC entre em suspensão (AC e DC) |
+| Desativar Desligamento de Tela | Mantém a tela sempre ligada (AC e DC) |
 | Performance Máxima | Ativa plano de energia Ultimate Performance |
 | Tema Escuro | Aplica dark mode no sistema e apps |
 | Desativar Widgets | Remove widgets da barra de tarefas |
