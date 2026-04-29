@@ -4,7 +4,7 @@
 # github.com/matheusgabsilva/nexttool
 #
 # Uso via URL:
-#   irm "https://raw.githubusercontent.com/matheusgabsilva/nexttool/main/nexttool.ps1" | iex
+#   irm nexttool.matheusgabsilva.digital | iex
 # ================================================================
 
 Set-StrictMode -Off
@@ -19,7 +19,7 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     if ($scriptPath) {
         Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs
     } else {
-        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -Command `"irm 'https://raw.githubusercontent.com/matheusgabsilva/nexttool/main/nexttool.ps1' | iex`"" -Verb RunAs
+        Start-Process PowerShell "-NoProfile -ExecutionPolicy Bypass -Command `"irm nexttool.matheusgabsilva.digital | iex`"" -Verb RunAs
     }
     exit
 }
