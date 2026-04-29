@@ -316,6 +316,309 @@ function Invoke-ReinstalarImpressoras {
     Write-Log "Reinstalacao de impressoras concluida." "OK"
 }
 
+# ================================================================
+# ALTA PRIORIDADE
+# ================================================================
+function Invoke-PingVisual {
+    param([string]$Host = "8.8.8.8", [int]$Count = 4)
+    Write-Log "=== PING: $Host ===" "STEP"
+    $resultados = Test-Connection -ComputerName $Host -Count $Count -ErrorAction SilentlyContinue
+    if ($resultados) {
+        $resultados | ForEach-Object {
+            $ms = $_.ResponseTime
+            $level = if ($ms -lt 50) {"OK"} elseif ($ms -lt 150) {"AVISO"} else {"ERRO"}
+            Write-Log "  Resposta de $($_.Address): ${ms}ms" $level
+        }
+        $avg = [math]::Round(($resultados | Measure-Object ResponseTime -Average).Average, 1)
+        $lost = $Count - $resultados.Count
+        Write-Log "Enviados: $Count  |  Perdidos: $lost  |  Latencia media: ${avg}ms" "OK"
+    } else {
+        Write-Log "Sem resposta de $Host - host inacessivel ou sem rede." "ERRO"
+    }
+}
+
+function Invoke-PingContinuo {
+    param([string]$Host = "8.8.8.8", [int]$Count = 20)
+    Write-Log "=== PING CONTINUO: $Host ($Count pacotes) ===" "STEP"
+    $ok = 0; $fail = 0
+    for ($i = 1; $i -le $Count; $i++) {
+        $r = Test-Connection -ComputerName $Host -Count 1 -ErrorAction SilentlyContinue
+        if ($r) {
+            $ms = $r.ResponseTime
+            $ok++
+            $level = if ($ms -lt 50) {"OK"} elseif ($ms -lt 150) {"AVISO"} else {"ERRO"}
+            Write-Log "  [$i/$Count] ${ms}ms" $level
+        } else {
+            $fail++
+            Write-Log "  [$i/$Count] Timeout" "ERRO"
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    Write-Log "Concluido - OK: $ok  |  Falhas: $fail  |  Perda: $([math]::Round($fail/$Count*100))%" $(if ($fail -eq 0){"OK"} else {"AVISO"})
+}
+
+function Invoke-TracertVisual {
+    param([string]$Host = "8.8.8.8")
+    Write-Log "=== TRACERT: $Host ===" "STEP"
+    try {
+        $saida = & tracert.exe -h 20 -w 1000 $Host 2>&1
+        $saida | ForEach-Object {
+            $line = $_.ToString().Trim()
+            if ($line) { Write-Log "  $line" "PLAIN" }
+        }
+        Write-Log "Tracert concluido." "OK"
+    } catch { Write-Log "Erro no tracert: $_" "ERRO" }
+}
+
+function Export-RelatorioHTML {
+    Write-Log "=== GERANDO RELATORIO HTML ===" "STEP"
+    try {
+        $ts   = Get-Date -Format "yyyyMMdd_HHmmss"
+        $file = "$script:REPORT_DIR\relatorio_$($env:COMPUTERNAME)_$ts.html"
+
+        $cs   = Get-CimInstance Win32_ComputerSystem
+        $os   = Get-CimInstance Win32_OperatingSystem
+        $cpu  = Get-CimInstance Win32_Processor | Select-Object -First 1
+        $gpu  = (Get-CimInstance Win32_VideoController | Select-Object -First 1).Caption
+        $mb   = Get-CimInstance Win32_BaseBoard
+        $bios = Get-CimInstance Win32_BIOS
+        $ramT = [math]::Round($cs.TotalPhysicalMemory/1GB,1)
+        $boot = $os.LastBootUpTime
+        $up   = (Get-Date) - $boot
+        $discos = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -gt 0 } | ForEach-Object {
+            $t = [math]::Round(($_.Used + $_.Free)/1GB,1)
+            $f = [math]::Round($_.Free/1GB,1)
+            "<tr><td>$($_.Name):</td><td>${t} GB total</td><td>${f} GB livre</td></tr>"
+        }
+        $nic = Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled=TRUE" | Select-Object -First 1
+        $ip  = if ($nic.IPAddress) { $nic.IPAddress[0] } else { "N/A" }
+        $dns = if ($nic.DNSServerSearchOrder) { $nic.DNSServerSearchOrder -join ", " } else { "N/A" }
+        $gw  = if ($nic.DefaultIPGateway) { $nic.DefaultIPGateway[0] } else { "N/A" }
+
+        $defSt = "N/A"
+        try { $def = Get-MpComputerStatus -ErrorAction Stop; $defSt = if ($def.AntivirusEnabled) {"ATIVO"} else {"INATIVO"} } catch {}
+
+        $dominio = if ($cs.PartOfDomain) { "Dominio: $($cs.Domain)" } else { "Grupo de trabalho: $($cs.Domain)" }
+        $licenca = try { (Get-CimInstance SoftwareLicensingProduct -Filter "PartialProductKey IS NOT NULL AND LicenseStatus=1 AND Name LIKE 'Windows%'" -ErrorAction Stop | Select-Object -First 1).Name } catch { "N/A" }
+
+        $html = @"
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8">
+<title>NextTool - Relatorio $($env:COMPUTERNAME)</title>
+<style>
+body{font-family:Segoe UI,Arial,sans-serif;background:#1e2128;color:#abb2bf;margin:0;padding:20px}
+h1{color:#61afef;border-bottom:2px solid #61afef;padding-bottom:8px}
+h2{color:#98c379;margin-top:24px;font-size:14px;text-transform:uppercase;letter-spacing:1px}
+table{width:100%;border-collapse:collapse;margin-bottom:16px}
+td,th{padding:6px 12px;border:1px solid #3e4451;font-size:13px}
+th{background:#21252b;color:#61afef;text-align:left}
+tr:nth-child(even){background:#21252b}
+.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:bold}
+.ok{background:#2d4a3e;color:#98c379}.er{background:#4a2d2d;color:#e06c75}
+.info{color:#5c6370;font-size:11px}
+</style></head><body>
+<h1>NextTool - Relatorio do Sistema</h1>
+<p class="info">Gerado em: $(Get-Date -Format "dd/MM/yyyy HH:mm:ss")  |  Operador: $env:USERNAME</p>
+<h2>Computador</h2>
+<table><tr><th>Campo</th><th>Valor</th></tr>
+<tr><td>Nome</td><td>$($env:COMPUTERNAME)</td></tr>
+<tr><td>Dominio / Grupo</td><td>$dominio</td></tr>
+<tr><td>Sistema Operacional</td><td>$($os.Caption) (Build $($os.BuildNumber))</td></tr>
+<tr><td>Licenca Windows</td><td>$licenca</td></tr>
+<tr><td>Uptime</td><td>$($up.Days)d $($up.Hours)h $($up.Minutes)m</td></tr>
+<tr><td>Ultimo boot</td><td>$($boot.ToString('dd/MM/yyyy HH:mm'))</td></tr>
+</table>
+<h2>Hardware</h2>
+<table><tr><th>Campo</th><th>Valor</th></tr>
+<tr><td>Processador</td><td>$($cpu.Name.Trim())</td></tr>
+<tr><td>Nucleos</td><td>$($cpu.NumberOfCores) cores / $($cpu.NumberOfLogicalProcessors) threads</td></tr>
+<tr><td>RAM Total</td><td>$ramT GB</td></tr>
+<tr><td>GPU</td><td>$gpu</td></tr>
+<tr><td>Placa-mae</td><td>$($mb.Manufacturer) $($mb.Product)</td></tr>
+<tr><td>BIOS</td><td>$($bios.Manufacturer) v$($bios.SMBIOSBIOSVersion)</td></tr>
+</table>
+<h2>Armazenamento</h2>
+<table><tr><th>Drive</th><th>Total</th><th>Livre</th></tr>$($discos -join "")</table>
+<h2>Rede</h2>
+<table><tr><th>Campo</th><th>Valor</th></tr>
+<tr><td>Adaptador</td><td>$($nic.Description)</td></tr>
+<tr><td>Endereco IP</td><td>$ip</td></tr>
+<tr><td>Gateway</td><td>$gw</td></tr>
+<tr><td>DNS</td><td>$dns</td></tr>
+</table>
+<h2>Seguranca</h2>
+<table><tr><th>Item</th><th>Status</th></tr>
+<tr><td>Windows Defender</td><td><span class="badge $(if($defSt -eq 'ATIVO'){'ok'}else{'er'})">$defSt</span></td></tr>
+</table>
+</body></html>
+"@
+        $html | Out-File -FilePath $file -Encoding UTF8
+        Write-Log "Relatorio gerado: $file" "OK"
+        Start-Process $file
+    } catch { Write-Log "Erro ao gerar relatorio: $_" "ERRO" }
+}
+
+function Invoke-VerificarDominio {
+    Write-Log "=== STATUS DE DOMINIO ===" "STEP"
+    $cs = Get-CimInstance Win32_ComputerSystem
+    if ($cs.PartOfDomain) {
+        Write-Log "PC no dominio: $($cs.Domain)" "OK"
+        try {
+            $dc = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain().DomainControllers | Select-Object -First 1
+            Write-Log "DC encontrado: $($dc.Name)" "OK"
+        } catch { Write-Log "Nao foi possivel contatar o DC." "AVISO" }
+    } else {
+        Write-Log "PC nao esta em dominio. Grupo de trabalho: $($cs.Domain)" "AVISO"
+    }
+    $site = try { [System.DirectoryServices.ActiveDirectory.ActiveDirectorySite]::GetComputerSite().Name } catch { "N/A" }
+    if ($site -ne "N/A") { Write-Log "Site AD: $site" "INFO" }
+}
+
+function Invoke-DesbloquearUsuario {
+    param([string]$NomeUsuario)
+    if (-not $NomeUsuario) { Write-Log "Selecione um usuario na lista primeiro." "AVISO"; return }
+    Write-Log "Desbloqueando usuario: $NomeUsuario..." "STEP"
+    try {
+        Unlock-LocalUser -Name $NomeUsuario -ErrorAction Stop
+        Write-Log "Usuario '$NomeUsuario' desbloqueado com sucesso." "OK"
+    } catch { Write-Log "Erro ao desbloquear '$NomeUsuario': $_" "ERRO" }
+}
+
+function Show-IPInfo {
+    Write-Log "=== INFORMACOES DE REDE ===" "STEP"
+    Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled=TRUE" | ForEach-Object {
+        Write-Log "Adaptador : $($_.Description)" "INFO"
+        if ($_.IPAddress)            { Write-Log " IP       : $($_.IPAddress[0])" "PLAIN" }
+        if ($_.IPSubnet)             { Write-Log " Mascara  : $($_.IPSubnet[0])" "PLAIN" }
+        if ($_.DefaultIPGateway)     { Write-Log " Gateway  : $($_.DefaultIPGateway[0])" "PLAIN" }
+        if ($_.DNSServerSearchOrder) { Write-Log " DNS      : $($_.DNSServerSearchOrder -join ' | ')" "PLAIN" }
+        if ($_.MACAddress)           { Write-Log " MAC      : $($_.MACAddress)" "PLAIN" }
+        Write-Log "" "PLAIN"
+    }
+}
+
+# ================================================================
+# MEDIA PRIORIDADE
+# ================================================================
+function Invoke-HistoricoLogs {
+    Write-Log "=== HISTORICO DE SESSOES ===" "STEP"
+    $logs = Get-ChildItem -Path $script:REPORT_DIR -Filter "nexttool_*.log" -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 10
+    if (-not $logs) { Write-Log "Nenhum log anterior encontrado." "INFO"; return }
+    Write-Log "$($logs.Count) sessao(oes) encontrada(s):" "OK"
+    $logs | ForEach-Object {
+        $size = [math]::Round($_.Length/1KB, 1)
+        Write-Log "  $($_.LastWriteTime.ToString('dd/MM/yyyy HH:mm'))  |  $($_.Name)  ($size KB)" "PLAIN"
+    }
+    Start-Process explorer.exe $script:REPORT_DIR
+}
+
+function Invoke-VerificarUpdates {
+    Write-Log "=== VERIFICAR ATUALIZACOES PENDENTES ===" "STEP"
+    try {
+        $session  = New-Object -ComObject Microsoft.Update.Session
+        $searcher = $session.CreateUpdateSearcher()
+        Write-Log "Consultando Windows Update (aguarde)..." "INFO"
+        $result = $searcher.Search("IsInstalled=0 and Type='Software'")
+        if ($result.Updates.Count -eq 0) {
+            Write-Log "Nenhuma atualizacao pendente." "OK"
+        } else {
+            Write-Log "$($result.Updates.Count) atualizacao(oes) pendente(s):" "AVISO"
+            $result.Updates | Select-Object -First 15 | ForEach-Object {
+                $size = if ($_.MaxDownloadSize -gt 0) { " ($([math]::Round($_.MaxDownloadSize/1MB,1)) MB)" } else { "" }
+                Write-Log "  - $($_.Title)$size" "PLAIN"
+            }
+            if ($result.Updates.Count -gt 15) {
+                Write-Log "  ... e mais $($result.Updates.Count - 15) atualizacao(oes)." "PLAIN"
+            }
+        }
+    } catch { Write-Log "Erro ao verificar updates: $_" "ERRO" }
+}
+
+function Show-ServiciosCriticos {
+    Write-Log "=== STATUS DE SERVICOS CRITICOS ===" "STEP"
+    $servicos = @{
+        "Spooler"       = "Fila de Impressao"
+        "wuauserv"      = "Windows Update"
+        "W32Time"       = "Hora do Windows"
+        "LanmanServer"  = "Compartilhamento (Server)"
+        "Netlogon"      = "Logon de Rede"
+        "BITS"          = "BITS (Downloads)"
+        "Dnscache"      = "Cache DNS"
+        "RpcSs"         = "RPC"
+        "EventLog"      = "Log de Eventos"
+        "WinDefend"     = "Windows Defender"
+    }
+    foreach ($svc in $servicos.GetEnumerator()) {
+        try {
+            $s = Get-Service -Name $svc.Key -ErrorAction Stop
+            $status = $s.Status
+            $level  = if ($status -eq "Running") {"OK"} else {"AVISO"}
+            Write-Log ("  {0,-28} [{1}]" -f $svc.Value, $status) $level
+        } catch {
+            Write-Log ("  {0,-28} [NAO ENCONTRADO]" -f $svc.Value) "PLAIN"
+        }
+    }
+}
+
+function Invoke-ReiniciarServico {
+    param([string]$NomeServico)
+    if (-not $NomeServico) { Write-Log "Informe o nome do servico." "AVISO"; return }
+    Write-Log "Reiniciando servico: $NomeServico..." "STEP"
+    try {
+        Restart-Service -Name $NomeServico -Force -ErrorAction Stop
+        Write-Log "Servico '$NomeServico' reiniciado com sucesso." "OK"
+    } catch { Write-Log "Erro ao reiniciar '$NomeServico': $_" "ERRO" }
+}
+
+function Invoke-LimparPerfilCorrompido {
+    Write-Log "=== LIMPAR PERFIS CORROMPIDOS ===" "STEP"
+    $regPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
+    $perfis  = Get-ChildItem $regPath -ErrorAction SilentlyContinue
+    $encontrados = 0
+    foreach ($p in $perfis) {
+        $caminho = (Get-ItemProperty $p.PSPath -ErrorAction SilentlyContinue).ProfileImagePath
+        $isBak   = $p.PSChildName -match "\.bak$"
+        $isTemp  = $caminho -match "TEMP$|\.TEMP$"
+        if ($isBak -or $isTemp) {
+            Write-Log "Perfil corrompido encontrado: $caminho" "AVISO"
+            try {
+                Remove-Item $p.PSPath -Recurse -Force -ErrorAction Stop
+                Write-Log "Entrada removida do registro: $($p.PSChildName)" "OK"
+                $encontrados++
+            } catch { Write-Log "Erro ao remover perfil: $_" "ERRO" }
+        }
+    }
+    if ($encontrados -eq 0) {
+        Write-Log "Nenhum perfil corrompido ou temporario encontrado." "OK"
+    } else {
+        Write-Log "$encontrados perfil(is) removido(s). Reinicie o computador." "OK"
+    }
+}
+
+function Invoke-DesinstalarApp {
+    param([string]$NomeApp)
+    if (-not $NomeApp) { Write-Log "Informe o nome do aplicativo." "AVISO"; return }
+    Write-Log "=== DESINSTALAR: $NomeApp ===" "STEP"
+    $wingetExe = $null
+    foreach ($p in @("$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe",
+                     "$env:ProgramFiles\WindowsApps\Microsoft.DesktopAppInstaller_*\winget.exe")) {
+        $found = Resolve-Path $p -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($found) { $wingetExe = $found.Path; break }
+    }
+    if (-not $wingetExe) { Write-Log "winget nao encontrado." "ERRO"; return }
+    Write-Log "Procurando '$NomeApp' via winget..." "INFO"
+    $proc = Start-Process $wingetExe -ArgumentList "uninstall --name `"$NomeApp`" --silent --accept-source-agreements" `
+            -Wait -PassThru -WindowStyle Hidden -RedirectStandardOutput "$env:TEMP\wg_out.txt" -ErrorAction SilentlyContinue
+    $out = Get-Content "$env:TEMP\wg_out.txt" -ErrorAction SilentlyContinue
+    if ($out) { $out | ForEach-Object { if ($_) { Write-Log "  $_" "PLAIN" } } }
+    if ($proc.ExitCode -eq 0) {
+        Write-Log "Aplicativo '$NomeApp' desinstalado com sucesso." "OK"
+    } else {
+        Write-Log "Desinstalacao retornou codigo $($proc.ExitCode). Verifique o nome do app." "AVISO"
+    }
+}
+
 function Invoke-RenovarIP {
     Write-Log "=== RENOVAR ENDERECO IP (DHCP) ===" "STEP"
     Write-Log "Liberando IP atual..." "INFO"
@@ -971,6 +1274,10 @@ $script:FuncNames = @(
     'Invoke-RenovarIP','Invoke-ResetarProxy','Invoke-SincronizarHora',
     'Invoke-LimparMiniaturas','Invoke-LimparCredenciais','Invoke-LimparCacheTeamsOffice',
     'Invoke-GpUpdate','Invoke-RestartExplorer',
+    'Invoke-PingVisual','Invoke-PingContinuo','Invoke-TracertVisual','Export-RelatorioHTML',
+    'Invoke-VerificarDominio','Invoke-DesbloquearUsuario','Show-IPInfo',
+    'Invoke-HistoricoLogs','Invoke-VerificarUpdates','Show-ServiciosCriticos',
+    'Invoke-ReiniciarServico','Invoke-LimparPerfilCorrompido','Invoke-DesinstalarApp',
     'Invoke-Diagnostico',
     'Get-NicConfig','Show-Adapters','Invoke-SetDNS','Invoke-ResetDNS','Invoke-RenovarDHCP',
     'Invoke-TestarConectividade','Show-IPConfig','Invoke-RenomearPC','Invoke-JoinDomain',
@@ -1404,12 +1711,45 @@ function Invoke-Async {
               </Grid>
             </GroupBox>
 
+            <!-- Rede rapida -->
+            <GroupBox Header="Rede">
+              <Grid Margin="4,4">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                  <TextBlock Text="ENDERECO IP" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock x:Name="SiIP"      Foreground="#ABB2BF" FontSize="11" Margin="0,0,0,8"/>
+                  <TextBlock Text="GATEWAY"     Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock x:Name="SiGW"      Foreground="#ABB2BF" FontSize="11"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                  <TextBlock Text="DNS"         Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock x:Name="SiDNS"     Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                  <TextBlock Text="ADAPTADOR"   Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock x:Name="SiNIC"     Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Text="DOMINIO / WORKGROUP" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock x:Name="SiDomain"  Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                  <TextBlock Text="LICENCA WINDOWS"     Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock x:Name="SiLicenca" Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Grid>
+            </GroupBox>
+
             <!-- Acao -->
             <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
               <Button x:Name="BtnDiagnostico" Content="Diagnostico Completo"
                       Background="#61AFEF" Foreground="#1E2128" Padding="18,10" Margin="0,0,10,0"/>
               <Button x:Name="BtnAtualizarDrivers" Content="Atualizar Drivers + winget"
-                      Background="#98C379" Foreground="#1E2128" Padding="18,10"/>
+                      Background="#98C379" Foreground="#1E2128" Padding="18,10" Margin="0,0,10,0"/>
+              <Button x:Name="BtnExportarRelatorio" Content="Exportar Relatorio HTML"
+                      Background="#C678DD" Foreground="#1E2128" Padding="18,10" Margin="0,0,10,0"/>
+              <Button x:Name="BtnHistoricoLogs" Content="Historico de Sessoes"
+                      Background="#4B5263" Foreground="#ABB2BF" Padding="18,10"/>
             </StackPanel>
 
           </StackPanel>
@@ -1462,10 +1802,31 @@ function Invoke-Async {
 
             <GroupBox Header="Sistema">
               <WrapPanel Margin="4,4">
-                <Button x:Name="BtnGpUpdate"        Content="gpupdate /force"    Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnRestartExplorer" Content="Reiniciar Explorer" Width="175" Height="64" Margin="0,0,10,10"
+                <Button x:Name="BtnGpUpdate"          Content="gpupdate /force"       Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnRestartExplorer"   Content="Reiniciar Explorer"    Width="175" Height="64" Margin="0,0,10,10"
                         Background="#E5C07B" Foreground="#1E2128"/>
+                <Button x:Name="BtnVerificarUpdates"  Content="Verificar Updates"     Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnServicos"          Content="Status de Servicos"    Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnPerfilCorrompido"  Width="190" Height="64" Margin="0,0,10,10">
+                  <TextBlock Text="Limpar Perfil Corrompido" TextWrapping="Wrap" TextAlignment="Center"/>
+                </Button>
               </WrapPanel>
+            </GroupBox>
+
+            <GroupBox Header="Reiniciar Servico">
+              <StackPanel Margin="4,4" Orientation="Horizontal">
+                <TextBox x:Name="TxtServico" Width="200" Margin="0,0,8,0"/>
+                <Button x:Name="BtnReiniciarServico" Content="Reiniciar"
+                        Background="#E5C07B" Foreground="#1E2128" Padding="14,5"/>
+              </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Desinstalar Aplicativo (winget)">
+              <StackPanel Margin="4,4" Orientation="Horizontal">
+                <TextBox x:Name="TxtDesinstalarApp" Width="280" Margin="0,0,8,0"/>
+                <Button x:Name="BtnDesinstalarApp" Content="Desinstalar"
+                        Background="#E06C75" Foreground="#1E2128" Padding="14,5"/>
+              </StackPanel>
             </GroupBox>
 
           </StackPanel>
@@ -1547,7 +1908,22 @@ function Invoke-Async {
                   <Button x:Name="BtnListarAdapters" Content="Listar Adaptadores"   Margin="0,0,8,8"/>
                   <Button x:Name="BtnTestarConect"   Content="Testar Conectividade" Margin="0,0,8,8"/>
                   <Button x:Name="BtnIPConfig"       Content="IPConfig /all"        Margin="0,0,0,8"/>
+                  <Button x:Name="BtnVerificarDominio" Content="Status Dominio"     Margin="0,0,8,0"/>
+                  <Button x:Name="BtnIPInfo"          Content="Info Rede Completa"  Margin="0,0,0,0"/>
                 </WrapPanel>
+              </GroupBox>
+
+              <GroupBox Header="Ping / Tracert">
+                <StackPanel Margin="4,4">
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBox x:Name="TxtPingHost" Text="8.8.8.8" Width="180" Margin="0,0,8,0"/>
+                    <Button x:Name="BtnPing"        Content="Ping"            Margin="0,0,8,0" Padding="12,5"/>
+                    <Button x:Name="BtnPingContinuo" Content="Ping Continuo"  Margin="0,0,8,0" Padding="12,5"
+                            Background="#E5C07B" Foreground="#1E2128"/>
+                    <Button x:Name="BtnTracert"     Content="Tracert"         Padding="12,5"
+                            Background="#4B5263" Foreground="#ABB2BF"/>
+                  </StackPanel>
+                </StackPanel>
               </GroupBox>
 
               <GroupBox Header="Configurar DNS">
@@ -1612,7 +1988,9 @@ function Invoke-Async {
               <Button x:Name="BtnAddToAdmins" Content="&gt; Administradores"
                       Background="#61AFEF" Foreground="#1E2128" Padding="12,5" Margin="0,0,8,0"/>
               <Button x:Name="BtnRemoveUser" Content="Remover Usuario"
-                      Background="#E06C75" Foreground="#1E2128" Padding="12,5"/>
+                      Background="#E06C75" Foreground="#1E2128" Padding="12,5" Margin="0,0,8,0"/>
+              <Button x:Name="BtnDesbloquearUser" Content="Desbloquear"
+                      Background="#98C379" Foreground="#1E2128" Padding="12,5"/>
             </StackPanel>
           </Border>
 
@@ -1905,6 +2283,27 @@ $TxtDns2            = $Window.FindName("TxtDns2")
 $BtnSetDns          = $Window.FindName("BtnSetDns")
 $BtnResetDns        = $Window.FindName("BtnResetDns")
 $BtnRenovarDHCP     = $Window.FindName("BtnRenovarDHCP")
+$SiIP               = $Window.FindName("SiIP")
+$SiGW               = $Window.FindName("SiGW")
+$SiDNS              = $Window.FindName("SiDNS")
+$SiNIC              = $Window.FindName("SiNIC")
+$SiDomain           = $Window.FindName("SiDomain")
+$SiLicenca          = $Window.FindName("SiLicenca")
+$BtnExportarRelatorio = $Window.FindName("BtnExportarRelatorio")
+$BtnHistoricoLogs   = $Window.FindName("BtnHistoricoLogs")
+$BtnVerificarUpdates= $Window.FindName("BtnVerificarUpdates")
+$BtnServicos        = $Window.FindName("BtnServicos")
+$BtnPerfilCorrompido= $Window.FindName("BtnPerfilCorrompido")
+$TxtServico         = $Window.FindName("TxtServico")
+$BtnReiniciarServico= $Window.FindName("BtnReiniciarServico")
+$TxtDesinstalarApp  = $Window.FindName("TxtDesinstalarApp")
+$BtnDesinstalarApp  = $Window.FindName("BtnDesinstalarApp")
+$TxtPingHost        = $Window.FindName("TxtPingHost")
+$BtnPing            = $Window.FindName("BtnPing")
+$BtnPingContinuo    = $Window.FindName("BtnPingContinuo")
+$BtnTracert         = $Window.FindName("BtnTracert")
+$BtnVerificarDominio= $Window.FindName("BtnVerificarDominio")
+$BtnIPInfo          = $Window.FindName("BtnIPInfo")
 $BtnListarAdapters  = $Window.FindName("BtnListarAdapters")
 $BtnTestarConect    = $Window.FindName("BtnTestarConect")
 $BtnIPConfig        = $Window.FindName("BtnIPConfig")
@@ -1919,7 +2318,8 @@ $LvUsers            = $Window.FindName("LvUsers")
 $BtnListarUsers     = $Window.FindName("BtnListarUsers")
 $BtnToggleUser      = $Window.FindName("BtnToggleUser")
 $BtnAddToAdmins     = $Window.FindName("BtnAddToAdmins")
-$BtnRemoveUser      = $Window.FindName("BtnRemoveUser")
+$BtnRemoveUser        = $Window.FindName("BtnRemoveUser")
+$BtnDesbloquearUser   = $Window.FindName("BtnDesbloquearUser")
 $TxtNewUserName     = $Window.FindName("TxtNewUserName")
 $TxtNewUserPass     = $Window.FindName("TxtNewUserPass")
 $ChkNewUserAdmin    = $Window.FindName("ChkNewUserAdmin")
@@ -2042,8 +2442,28 @@ try {
     try { $sb = Confirm-SecureBootUEFI -ErrorAction Stop; $sbSt = if ($sb) {"Secure Boot: Ativo"} else {"Secure Boot: Inativo"} } catch {}
     $SiTpm.Text   = "$tpmSt`n$sbSt"
 
-    $HdrPC.Text     = "🖥  $env:COMPUTERNAME"
-    $HdrUptime.Text = "⏱  $($up.Days)d $($up.Hours)h $($up.Minutes)m"
+    $HdrPC.Text     = $env:COMPUTERNAME
+    $HdrUptime.Text = "$($up.Days)d $($up.Hours)h $($up.Minutes)m"
+
+    # Rede rapida
+    try {
+        $nic = Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled=TRUE" | Select-Object -First 1
+        $SiIP.Text  = if ($nic.IPAddress)            { $nic.IPAddress[0] }             else { "N/A" }
+        $SiGW.Text  = if ($nic.DefaultIPGateway)     { $nic.DefaultIPGateway[0] }      else { "N/A" }
+        $SiDNS.Text = if ($nic.DNSServerSearchOrder) { $nic.DNSServerSearchOrder -join " | " } else { "N/A" }
+        $SiNIC.Text = $nic.Description
+    } catch { $SiIP.Text = "N/A" }
+
+    # Dominio
+    try {
+        $SiDomain.Text = if ($cs.PartOfDomain) { "Dominio: $($cs.Domain)" } else { "Workgroup: $($cs.Domain)" }
+    } catch {}
+
+    # Licenca Windows
+    try {
+        $lic = Get-CimInstance SoftwareLicensingProduct -Filter "PartialProductKey IS NOT NULL AND LicenseStatus=1 AND Name LIKE 'Windows%'" -ErrorAction Stop | Select-Object -First 1
+        $SiLicenca.Text = if ($lic) { $lic.Name -replace "Windows ","" } else { "N/A" }
+    } catch { $SiLicenca.Text = "N/A" }
 } catch {}
 
 # Barras de disco (aba Armazenamento)
@@ -2090,8 +2510,10 @@ try {
 # ================================================================
 
 # --- Sistema ---
-$BtnDiagnostico.Add_Click({      Invoke-Async { Invoke-Diagnostico } })
-$BtnAtualizarDrivers.Add_Click({ Invoke-Async { Invoke-TweakDrivers } })
+$BtnDiagnostico.Add_Click({       Invoke-Async { Invoke-Diagnostico } })
+$BtnAtualizarDrivers.Add_Click({  Invoke-Async { Invoke-TweakDrivers } })
+$BtnExportarRelatorio.Add_Click({ Invoke-Async { Export-RelatorioHTML } })
+$BtnHistoricoLogs.Add_Click({     Invoke-Async { Invoke-HistoricoLogs } })
 $BtnRelatorio.Add_Click({        Start-Process explorer.exe $script:REPORT_DIR })
 
 # --- Manutencao ---
@@ -2109,8 +2531,19 @@ $BtnResetarProxy.Add_Click({          Invoke-Async { Invoke-ResetarProxy } })
 $BtnSincronizarHora.Add_Click({       Invoke-Async { Invoke-SincronizarHora } })
 $BtnLimparSpooler.Add_Click({         Invoke-Async { Invoke-LimparSpooler } })
 $BtnReinstalarImpressoras.Add_Click({ Invoke-Async { Invoke-ReinstalarImpressoras } })
-$BtnGpUpdate.Add_Click({         Invoke-Async { Invoke-GpUpdate } })
-$BtnRestartExplorer.Add_Click({  Invoke-Async { Invoke-RestartExplorer } })
+$BtnGpUpdate.Add_Click({          Invoke-Async { Invoke-GpUpdate } })
+$BtnRestartExplorer.Add_Click({   Invoke-Async { Invoke-RestartExplorer } })
+$BtnVerificarUpdates.Add_Click({  Invoke-Async { Invoke-VerificarUpdates } })
+$BtnServicos.Add_Click({          Invoke-Async { Show-ServiciosCriticos } })
+$BtnPerfilCorrompido.Add_Click({  Invoke-Async { Invoke-LimparPerfilCorrompido } })
+$BtnReiniciarServico.Add_Click({
+    $svc = $TxtServico.Text.Trim()
+    Invoke-Async { Invoke-ReiniciarServico -NomeServico $V.Svc } -Vars @{ Svc = $svc }
+})
+$BtnDesinstalarApp.Add_Click({
+    $app = $TxtDesinstalarApp.Text.Trim()
+    Invoke-Async { Invoke-DesinstalarApp -NomeApp $V.App } -Vars @{ App = $app }
+})
 
 # --- Tweaks ---
 $script:AllTweakChks = @(
@@ -2176,7 +2609,21 @@ $BtnAplicarTweaks.Add_Click({
 })
 
 # --- Rede ---
-$BtnListarAdapters.Add_Click({ Invoke-Async { Show-Adapters } })
+$BtnListarAdapters.Add_Click({   Invoke-Async { Show-Adapters } })
+$BtnVerificarDominio.Add_Click({ Invoke-Async { Invoke-VerificarDominio } })
+$BtnIPInfo.Add_Click({           Invoke-Async { Show-IPInfo } })
+$BtnPing.Add_Click({
+    $h = $TxtPingHost.Text.Trim(); if (-not $h) { $h = "8.8.8.8" }
+    Invoke-Async { Invoke-PingVisual -Host $V.H } -Vars @{ H = $h }
+})
+$BtnPingContinuo.Add_Click({
+    $h = $TxtPingHost.Text.Trim(); if (-not $h) { $h = "8.8.8.8" }
+    Invoke-Async { Invoke-PingContinuo -Host $V.H } -Vars @{ H = $h }
+})
+$BtnTracert.Add_Click({
+    $h = $TxtPingHost.Text.Trim(); if (-not $h) { $h = "8.8.8.8" }
+    Invoke-Async { Invoke-TracertVisual -Host $V.H } -Vars @{ H = $h }
+})
 $BtnTestarConect.Add_Click({   Invoke-Async { Invoke-TestarConectividade } })
 $BtnIPConfig.Add_Click({       Invoke-Async { Show-IPConfig } })
 
@@ -2220,6 +2667,10 @@ $BtnAddToAdmins.Add_Click({
     $sel = $LvUsers.SelectedItem
     if (-not $sel) { Write-Log "Selecione um usuario na lista." "AVISO"; return }
     Invoke-Async { Invoke-AddToAdmins -Nome $N } -Vars @{N=$sel.Nome}
+})
+$BtnDesbloquearUser.Add_Click({
+    $u = if ($LvUsers.SelectedItem) { $LvUsers.SelectedItem.Nome } else { "" }
+    Invoke-Async { Invoke-DesbloquearUsuario -NomeUsuario $V.U } -Vars @{ U = $u }
 })
 $BtnRemoveUser.Add_Click({
     $sel = $LvUsers.SelectedItem
