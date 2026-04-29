@@ -320,9 +320,9 @@ function Invoke-ReinstalarImpressoras {
 # ALTA PRIORIDADE
 # ================================================================
 function Invoke-PingVisual {
-    param([string]$Host = "8.8.8.8", [int]$Count = 4)
-    Write-Log "=== PING: $Host ===" "STEP"
-    $resultados = Test-Connection -ComputerName $Host -Count $Count -ErrorAction SilentlyContinue
+    param([string]$Destino = "8.8.8.8", [int]$Count = 4)
+    Write-Log "=== PING: $Destino ===" "STEP"
+    $resultados = Test-Connection -ComputerName $Destino -Count $Count -ErrorAction SilentlyContinue
     if ($resultados) {
         $resultados | ForEach-Object {
             $ms = $_.ResponseTime
@@ -333,16 +333,16 @@ function Invoke-PingVisual {
         $lost = $Count - $resultados.Count
         Write-Log "Enviados: $Count  |  Perdidos: $lost  |  Latencia media: ${avg}ms" "OK"
     } else {
-        Write-Log "Sem resposta de $Host - host inacessivel ou sem rede." "ERRO"
+        Write-Log "Sem resposta de $Destino - host inacessivel ou sem rede." "ERRO"
     }
 }
 
 function Invoke-PingContinuo {
-    param([string]$Host = "8.8.8.8", [int]$Count = 20)
-    Write-Log "=== PING CONTINUO: $Host ($Count pacotes) ===" "STEP"
+    param([string]$Destino = "8.8.8.8", [int]$Count = 20)
+    Write-Log "=== PING CONTINUO: $Destino ($Count pacotes) ===" "STEP"
     $ok = 0; $fail = 0
     for ($i = 1; $i -le $Count; $i++) {
-        $r = Test-Connection -ComputerName $Host -Count 1 -ErrorAction SilentlyContinue
+        $r = Test-Connection -ComputerName $Destino -Count 1 -ErrorAction SilentlyContinue
         if ($r) {
             $ms = $r.ResponseTime
             $ok++
@@ -358,10 +358,10 @@ function Invoke-PingContinuo {
 }
 
 function Invoke-TracertVisual {
-    param([string]$Host = "8.8.8.8")
-    Write-Log "=== TRACERT: $Host ===" "STEP"
+    param([string]$Destino = "8.8.8.8")
+    Write-Log "=== TRACERT: $Destino ===" "STEP"
     try {
-        $saida = & tracert.exe -h 20 -w 1000 $Host 2>&1
+        $saida = & tracert.exe -h 20 -w 1000 $Destino 2>&1
         $saida | ForEach-Object {
             $line = $_.ToString().Trim()
             if ($line) { Write-Log "  $line" "PLAIN" }
@@ -371,10 +371,12 @@ function Invoke-TracertVisual {
 }
 
 function Export-RelatorioHTML {
+    param([string]$ReportDir = "C:\Next-Relatorios")
     Write-Log "=== GERANDO RELATORIO HTML ===" "STEP"
     try {
+        if (-not (Test-Path $ReportDir)) { New-Item -Path $ReportDir -ItemType Directory -Force | Out-Null }
         $ts   = Get-Date -Format "yyyyMMdd_HHmmss"
-        $file = "$script:REPORT_DIR\relatorio_$($env:COMPUTERNAME)_$ts.html"
+        $file = "$ReportDir\relatorio_$($env:COMPUTERNAME)_$ts.html"
 
         $cs   = Get-CimInstance Win32_ComputerSystem
         $os   = Get-CimInstance Win32_OperatingSystem
@@ -501,8 +503,9 @@ function Show-IPInfo {
 # MEDIA PRIORIDADE
 # ================================================================
 function Invoke-HistoricoLogs {
+    param([string]$ReportDir = "C:\Next-Relatorios")
     Write-Log "=== HISTORICO DE SESSOES ===" "STEP"
-    $logs = Get-ChildItem -Path $script:REPORT_DIR -Filter "nexttool_*.log" -ErrorAction SilentlyContinue |
+    $logs = Get-ChildItem -Path $ReportDir -Filter "nexttool_*.log" -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending | Select-Object -First 10
     if (-not $logs) { Write-Log "Nenhum log anterior encontrado." "INFO"; return }
     Write-Log "$($logs.Count) sessao(oes) encontrada(s):" "OK"
@@ -510,7 +513,7 @@ function Invoke-HistoricoLogs {
         $size = [math]::Round($_.Length/1KB, 1)
         Write-Log "  $($_.LastWriteTime.ToString('dd/MM/yyyy HH:mm'))  |  $($_.Name)  ($size KB)" "PLAIN"
     }
-    Start-Process explorer.exe $script:REPORT_DIR
+    Start-Process explorer.exe $ReportDir
 }
 
 function Invoke-VerificarUpdates {
@@ -2510,8 +2513,8 @@ try {
 # --- Sistema ---
 $BtnDiagnostico.Add_Click({       Invoke-Async { Invoke-Diagnostico } })
 $BtnAtualizarDrivers.Add_Click({  Invoke-Async { Invoke-TweakDrivers } })
-$BtnExportarRelatorio.Add_Click({ Invoke-Async { Export-RelatorioHTML } })
-$BtnHistoricoLogs.Add_Click({     Invoke-Async { Invoke-HistoricoLogs } })
+$BtnExportarRelatorio.Add_Click({ Invoke-Async { Export-RelatorioHTML -ReportDir $V.Dir } -Vars @{ Dir = $script:REPORT_DIR } })
+$BtnHistoricoLogs.Add_Click({     Invoke-Async { Invoke-HistoricoLogs -ReportDir $V.Dir } -Vars @{ Dir = $script:REPORT_DIR } })
 $BtnRelatorio.Add_Click({        Start-Process explorer.exe $script:REPORT_DIR })
 
 # --- Manutencao ---
@@ -2612,15 +2615,15 @@ $BtnVerificarDominio.Add_Click({ Invoke-Async { Invoke-VerificarDominio } })
 $BtnIPInfo.Add_Click({           Invoke-Async { Show-IPInfo } })
 $BtnPing.Add_Click({
     $h = $TxtPingHost.Text.Trim(); if (-not $h) { $h = "8.8.8.8" }
-    Invoke-Async { Invoke-PingVisual -Host $V.H } -Vars @{ H = $h }
+    Invoke-Async { Invoke-PingVisual -Destino $V.H } -Vars @{ H = $h }
 })
 $BtnPingContinuo.Add_Click({
     $h = $TxtPingHost.Text.Trim(); if (-not $h) { $h = "8.8.8.8" }
-    Invoke-Async { Invoke-PingContinuo -Host $V.H } -Vars @{ H = $h }
+    Invoke-Async { Invoke-PingContinuo -Destino $V.H } -Vars @{ H = $h }
 })
 $BtnTracert.Add_Click({
     $h = $TxtPingHost.Text.Trim(); if (-not $h) { $h = "8.8.8.8" }
-    Invoke-Async { Invoke-TracertVisual -Host $V.H } -Vars @{ H = $h }
+    Invoke-Async { Invoke-TracertVisual -Destino $V.H } -Vars @{ H = $h }
 })
 $BtnTestarConect.Add_Click({   Invoke-Async { Invoke-TestarConectividade } })
 $BtnIPConfig.Add_Click({       Invoke-Async { Show-IPConfig } })
