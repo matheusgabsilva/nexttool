@@ -1008,7 +1008,7 @@ function Invoke-Async {
 <Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="NextTool v4.1 - Ferramenta de TI"
+    Title="NextTool v4.1 - Ferramenta de TI Next"
     Height="740" Width="1020"
     MinHeight="620" MinWidth="860"
     WindowStartupLocation="CenterScreen"
@@ -1340,13 +1340,13 @@ function Invoke-Async {
             <Border Background="#2D3139" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
               <TextBlock Text="v4.1" FontSize="10" Foreground="#5C6370" FontWeight="SemiBold"/>
             </Border>
-            <TextBlock Text="  Ferramenta de TI" FontSize="11" Foreground="#5C6370"
+            <TextBlock Text="  Ferramenta de TI Next" FontSize="11" Foreground="#5C6370"
                        VerticalAlignment="Center" Margin="10,0,0,0"/>
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,4,0">
             <TextBlock x:Name="HdrPC"     Foreground="#5C6370" FontSize="11" VerticalAlignment="Center" Margin="0,0,16,0"/>
             <TextBlock x:Name="HdrUptime" Foreground="#5C6370" FontSize="11" VerticalAlignment="Center" Margin="0,0,16,0"/>
-            <Button x:Name="BtnRelatorio" Content="📁 Relatórios"
+            <Button x:Name="BtnRelatorio" Content="Relatorios"
                     Background="#2D3139" Foreground="#ABB2BF" FontSize="11"
                     Padding="10,5" FontWeight="Normal"/>
           </StackPanel>
@@ -1375,7 +1375,7 @@ function Invoke-Async {
                   <TextBlock x:Name="SiPC"      Foreground="#ABB2BF" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
                   <TextBlock Text="SISTEMA OPERACIONAL" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
                   <TextBlock x:Name="SiOS"      Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                  <TextBlock Text="DOMÍNIO / USUÁRIO" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock Text="DOMINIO / USUARIO" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
                   <TextBlock x:Name="SiUser"    Foreground="#ABB2BF" FontSize="11" Margin="0,0,0,8"/>
                   <TextBlock Text="UPTIME" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
                   <TextBlock x:Name="SiUptime"  Foreground="#ABB2BF" FontSize="11"/>
@@ -1383,17 +1383,17 @@ function Invoke-Async {
                 <StackPanel Grid.Column="1" Margin="0,0,12,0">
                   <TextBlock Text="PROCESSADOR" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
                   <TextBlock x:Name="SiCPU"     Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                  <TextBlock Text="MEMÓRIA RAM"  Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock Text="MEMORIA RAM"  Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
                   <TextBlock x:Name="SiRAM"     Foreground="#ABB2BF" FontSize="11" Margin="0,0,0,8"/>
                   <TextBlock Text="GPU"          Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
                   <TextBlock x:Name="SiGPU"     Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                  <TextBlock Text="PLACA-MÃE / BIOS" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock Text="PLACA-MAE / BIOS" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
                   <TextBlock x:Name="SiMobo"    Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2">
                   <TextBlock Text="ARMAZENAMENTO" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
                   <TextBlock x:Name="SiDisk"    Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                  <TextBlock Text="SEGURANÇA"    Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                  <TextBlock Text="SEGURANCA"    Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
                   <TextBlock x:Name="SiSec"     Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
                   <TextBlock Text="TPM / SECURE BOOT" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
                   <TextBlock x:Name="SiTpm"     Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap"/>
@@ -1403,9 +1403,9 @@ function Invoke-Async {
 
             <!-- Acao -->
             <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-              <Button x:Name="BtnDiagnostico" Content="🔍  Diagnóstico Completo"
+              <Button x:Name="BtnDiagnostico" Content="Diagnostico Completo"
                       Background="#61AFEF" Foreground="#1E2128" Padding="18,10" Margin="0,0,10,0"/>
-              <Button x:Name="BtnAtualizarDrivers" Content="⬆  Atualizar Drivers + winget"
+              <Button x:Name="BtnAtualizarDrivers" Content="Atualizar Drivers + winget"
                       Background="#98C379" Foreground="#1E2128" Padding="18,10"/>
             </StackPanel>
 
@@ -1414,53 +1414,53 @@ function Invoke-Async {
       </TabItem>
 
       <!-- ===== MANUTENCAO ===== -->
-      <TabItem Header="  Manutenção  ">
+      <TabItem Header="  Manutencao  ">
         <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#21252B">
           <StackPanel Margin="20,16">
 
             <GroupBox Header="Limpeza">
               <WrapPanel Margin="4,4">
-                <Button x:Name="BtnOtimizar"           Content="🧹 Otimizar PC"              Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnSfcDism"            Content="🔧 SFC + DISM"               Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnCheckDisk"          Content="💽 Verificar Disco (C:)"     Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnLimparWU"           Content="🗑️ Limpar Cache WU"          Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnOtimizar"           Content="Otimizar PC"              Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnSfcDism"            Content="SFC + DISM"               Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnCheckDisk"          Content="Verificar Disco (C:)"     Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnLimparWU"           Content="Limpar Cache WU"          Width="175" Height="64" Margin="0,0,10,10"/>
                 <Button x:Name="BtnLimparMiniaturas"  Width="190" Height="64" Margin="0,0,10,10">
-                  <TextBlock Text="🖼️ Limpar Cache Miniaturas" TextWrapping="Wrap" TextAlignment="Center"/>
+                  <TextBlock Text="Limpar Cache Miniaturas" TextWrapping="Wrap" TextAlignment="Center"/>
                 </Button>
                 <Button x:Name="BtnLimparCredenciais" Width="190" Height="64" Margin="0,0,10,10">
-                  <TextBlock Text="🔑 Limpar Credenciais" TextWrapping="Wrap" TextAlignment="Center"/>
+                  <TextBlock Text="Limpar Credenciais" TextWrapping="Wrap" TextAlignment="Center"/>
                 </Button>
                 <Button x:Name="BtnLimparTeamsOffice" Width="190" Height="64" Margin="0,0,10,10">
-                  <TextBlock Text="💬 Limpar Cache Teams/Office" TextWrapping="Wrap" TextAlignment="Center"/>
+                  <TextBlock Text="Limpar Cache Teams/Office" TextWrapping="Wrap" TextAlignment="Center"/>
                 </Button>
               </WrapPanel>
             </GroupBox>
 
             <GroupBox Header="Rede">
               <WrapPanel Margin="4,4">
-                <Button x:Name="BtnFlushDns"      Content="🌐 Flush DNS"           Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnResetWinsock"  Content="🔄 Reset Winsock/IP"    Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnRenovarIP"     Content="📡 Renovar IP (DHCP)"   Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnResetarProxy"  Content="🔒 Resetar Proxy"       Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnSincronizarHora" Content="🕐 Sincronizar Hora"  Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnFlushDns"        Content="Flush DNS"           Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnResetWinsock"    Content="Reset Winsock/IP"    Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnRenovarIP"       Content="Renovar IP (DHCP)"   Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnResetarProxy"    Content="Resetar Proxy"       Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnSincronizarHora" Content="Sincronizar Hora"    Width="175" Height="64" Margin="0,0,10,10"/>
               </WrapPanel>
             </GroupBox>
 
-            <GroupBox Header="Impressão">
+            <GroupBox Header="Impressao">
               <WrapPanel Margin="4,4">
                 <Button x:Name="BtnLimparSpooler"         Width="190" Height="64" Margin="0,0,10,10">
-                  <TextBlock Text="🖨️ Limpar Fila de Impressão" TextWrapping="Wrap" TextAlignment="Center"/>
+                  <TextBlock Text="Limpar Fila de Impressao" TextWrapping="Wrap" TextAlignment="Center"/>
                 </Button>
                 <Button x:Name="BtnReinstalarImpressoras" Width="190" Height="64" Margin="0,0,10,10">
-                  <TextBlock Text="🖨️ Reinstalar Impressoras" TextWrapping="Wrap" TextAlignment="Center"/>
+                  <TextBlock Text="Reinstalar Impressoras" TextWrapping="Wrap" TextAlignment="Center"/>
                 </Button>
               </WrapPanel>
             </GroupBox>
 
             <GroupBox Header="Sistema">
               <WrapPanel Margin="4,4">
-                <Button x:Name="BtnGpUpdate"        Content="📋 gpupdate /force"    Width="175" Height="64" Margin="0,0,10,10"/>
-                <Button x:Name="BtnRestartExplorer" Content="🔃 Reiniciar Explorer" Width="175" Height="64" Margin="0,0,10,10"
+                <Button x:Name="BtnGpUpdate"        Content="gpupdate /force"    Width="175" Height="64" Margin="0,0,10,10"/>
+                <Button x:Name="BtnRestartExplorer" Content="Reiniciar Explorer" Width="175" Height="64" Margin="0,0,10,10"
                         Background="#E5C07B" Foreground="#1E2128"/>
               </WrapPanel>
             </GroupBox>
@@ -1479,8 +1479,8 @@ function Invoke-Async {
           </Grid.RowDefinitions>
           <Border Grid.Row="0" Background="#1E2128" Padding="16,10">
             <StackPanel Orientation="Horizontal">
-              <TextBlock Text="Seleção rápida:" Foreground="#5C6370" VerticalAlignment="Center" Margin="0,0,12,0" FontSize="11"/>
-              <Button x:Name="BtnPresetNext"   Content="Padrão Next" Background="#98C379" Foreground="#1E2128" Padding="14,5" Margin="0,0,8,0"/>
+              <TextBlock Text="Selecao rapida:" Foreground="#5C6370" VerticalAlignment="Center" Margin="0,0,12,0" FontSize="11"/>
+              <Button x:Name="BtnPresetNext"   Content="Padrao Next" Background="#98C379" Foreground="#1E2128" Padding="14,5" Margin="0,0,8,0"/>
               <Button x:Name="BtnPresetLimpar" Content="Limpar"      Background="#4B5263" Foreground="#ABB2BF" Padding="14,5"/>
             </StackPanel>
           </Border>
@@ -1492,17 +1492,17 @@ function Invoke-Async {
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
               <StackPanel Grid.Column="0">
-                <GroupBox Header="Essenciais  (Padrão Next)">
+                <GroupBox Header="Essenciais  (Padrao Next)">
                   <StackPanel Margin="4,4">
                     <CheckBox x:Name="ChkTelemetria"       Content="Desativar Telemetria"/>
-                    <CheckBox x:Name="ChkActivityHistory"  Content="Desativar Histórico de Atividades"/>
-                    <CheckBox x:Name="ChkLocationTracking" Content="Desativar Rastreamento de Localização"/>
-                    <CheckBox x:Name="ChkFileExtensions"   Content="Exibir Extensões de Arquivo"/>
+                    <CheckBox x:Name="ChkActivityHistory"  Content="Desativar Historico de Atividades"/>
+                    <CheckBox x:Name="ChkLocationTracking" Content="Desativar Rastreamento de Localizacao"/>
+                    <CheckBox x:Name="ChkFileExtensions"   Content="Exibir Extensoes de Arquivo"/>
                     <CheckBox x:Name="ChkHiddenFiles"      Content="Exibir Arquivos Ocultos"/>
-                    <CheckBox x:Name="ChkNumLock"          Content="Num Lock ativo na inicialização"/>
-                    <CheckBox x:Name="ChkEndTask"          Content="Finalizar Tarefa no botão direito"/>
-                    <CheckBox x:Name="ChkServices"         Content="Serviços desnecessários para Manual"/>
-                    <CheckBox x:Name="ChkHibernacao"       Content="Desativar Hibernação"/>
+                    <CheckBox x:Name="ChkNumLock"          Content="Num Lock ativo na inicializacao"/>
+                    <CheckBox x:Name="ChkEndTask"          Content="Finalizar Tarefa no botao direito"/>
+                    <CheckBox x:Name="ChkServices"         Content="Servicos desnecessarios para Manual"/>
+                    <CheckBox x:Name="ChkHibernacao"       Content="Desativar Hibernacao"/>
                     <CheckBox x:Name="ChkSuspender"        Content="Desativar Suspender (Sleep)"/>
                     <CheckBox x:Name="ChkTela"             Content="Desativar Desligamento de Tela"/>
                     <CheckBox x:Name="ChkSmartApp"         Content="Desativar Smart App Control  (Win11)"/>
@@ -1510,7 +1510,7 @@ function Invoke-Async {
                 </GroupBox>
               </StackPanel>
               <StackPanel Grid.Column="2">
-                <GroupBox Header="Preferências  (opcionais)">
+                <GroupBox Header="Preferencias  (opcionais)">
                   <StackPanel Margin="4,4">
                     <CheckBox x:Name="ChkUltimatePerf" Content="Plano Ultimate Performance"/>
                     <CheckBox x:Name="ChkDarkTheme"    Content="Tema Escuro do Windows"/>
@@ -1529,7 +1529,7 @@ function Invoke-Async {
       </TabItem>
 
       <!-- ===== REDE / DOMINIO ===== -->
-      <TabItem Header="  Rede / Domínio  ">
+      <TabItem Header="  Rede / Dominio  ">
         <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#21252B">
           <Grid Margin="20,16">
             <Grid.ColumnDefinitions>
@@ -1565,7 +1565,7 @@ function Invoke-Async {
             </StackPanel>
 
             <StackPanel Grid.Column="2">
-              <GroupBox Header="Ingressar em Domínio AD">
+              <GroupBox Header="Ingressar em Dominio AD">
                 <StackPanel Margin="4,4">
                   <Label Content="Domínio  (ex: empresa.local)"/>
                   <TextBox x:Name="TxtDominio" Margin="0,0,0,8"/>
@@ -1575,7 +1575,7 @@ function Invoke-Async {
                   <PasswordBox x:Name="TxtDomPass" Margin="0,0,0,8"/>
                   <Label Content="Novo nome do PC  (opcional)"/>
                   <TextBox x:Name="TxtDomName" Margin="0,0,0,14"/>
-                  <Button x:Name="BtnJoinDomain" Content="Ingressar no Domínio"
+                  <Button x:Name="BtnJoinDomain" Content="Ingressar no Dominio"
                           HorizontalAlignment="Left" Background="#E06C75" Foreground="#1E2128"/>
                 </StackPanel>
               </GroupBox>
@@ -1591,7 +1591,7 @@ function Invoke-Async {
       </TabItem>
 
       <!-- ===== USUARIOS ===== -->
-      <TabItem Header="  Usuários  ">
+      <TabItem Header="  Usuarios  ">
         <Grid Background="#21252B">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -1602,13 +1602,13 @@ function Invoke-Async {
           <!-- Botoes de acao -->
           <Border Grid.Row="0" Background="#1E2128" Padding="14,10">
             <StackPanel Orientation="Horizontal">
-              <Button x:Name="BtnListarUsers" Content="🔄 Atualizar Lista"
+              <Button x:Name="BtnListarUsers" Content="Atualizar Lista"
                       Background="#4B5263" Foreground="#ABB2BF" Padding="12,5" Margin="0,0,8,0"/>
               <Button x:Name="BtnToggleUser" Content="Ativar/Desativar"
                       Background="#E5C07B" Foreground="#1E2128" Padding="12,5" Margin="0,0,8,0"/>
-              <Button x:Name="BtnAddToAdmins" Content="→ Administradores"
+              <Button x:Name="BtnAddToAdmins" Content="&gt; Administradores"
                       Background="#61AFEF" Foreground="#1E2128" Padding="12,5" Margin="0,0,8,0"/>
-              <Button x:Name="BtnRemoveUser" Content="🗑 Remover Usuário"
+              <Button x:Name="BtnRemoveUser" Content="Remover Usuario"
                       Background="#E06C75" Foreground="#1E2128" Padding="12,5"/>
             </StackPanel>
           </Border>
@@ -1635,7 +1635,7 @@ function Invoke-Async {
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
               <StackPanel Grid.Column="0">
-                <TextBlock Text="CRIAR USUÁRIO" Foreground="#5C6370" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                <TextBlock Text="CRIAR USUARIO" Foreground="#5C6370" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
                 <StackPanel Orientation="Horizontal">
                   <TextBox x:Name="TxtNewUserName"  Width="140" Margin="0,0,8,0"/>
                   <PasswordBox x:Name="TxtNewUserPass" Width="130" Margin="0,0,8,0"/>
@@ -1657,7 +1657,7 @@ function Invoke-Async {
       </TabItem>
 
       <!-- ===== AREA DE TRABALHO ===== -->
-      <TabItem Header="  Área de Trabalho  ">
+      <TabItem Header="  Area de Trabalho  ">
         <Grid Background="#21252B">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -1669,13 +1669,13 @@ function Invoke-Async {
           <GroupBox Grid.Row="0" Header="Ícones do Sistema" Margin="16,12,16,0">
             <StackPanel Margin="4,6">
               <WrapPanel>
-                <CheckBox x:Name="ChkDtComputer" Content="🖥  Meu Computador"      Width="210" Margin="0,0,10,6"/>
-                <CheckBox x:Name="ChkDtUser"     Content="👤  Arquivos do Usuário" Width="210" Margin="0,0,10,6"/>
-                <CheckBox x:Name="ChkDtNetwork"  Content="🌐  Rede"                Width="210" Margin="0,0,10,6"/>
-                <CheckBox x:Name="ChkDtRecycle"  Content="🗑  Lixeira"             Width="210" Margin="0,0,10,6"/>
-                <CheckBox x:Name="ChkDtControl"  Content="⚙  Painel de Controle"  Width="210" Margin="0,0,10,6"/>
+                <CheckBox x:Name="ChkDtComputer" Content="Meu Computador"      Width="210" Margin="0,0,10,6"/>
+                <CheckBox x:Name="ChkDtUser"     Content="Arquivos do Usuario" Width="210" Margin="0,0,10,6"/>
+                <CheckBox x:Name="ChkDtNetwork"  Content="Rede"                Width="210" Margin="0,0,10,6"/>
+                <CheckBox x:Name="ChkDtRecycle"  Content="Lixeira"             Width="210" Margin="0,0,10,6"/>
+                <CheckBox x:Name="ChkDtControl"  Content="Painel de Controle"  Width="210" Margin="0,0,10,6"/>
               </WrapPanel>
-              <Button x:Name="BtnAplicarIcones" Content="Aplicar Ícones"
+              <Button x:Name="BtnAplicarIcones" Content="Aplicar Icones"
                       HorizontalAlignment="Left" Background="#61AFEF" Foreground="#1E2128"
                       Padding="14,6" Margin="0,8,0,0"/>
             </StackPanel>
@@ -1699,10 +1699,10 @@ function Invoke-Async {
                 </Grid.ColumnDefinitions>
                 <TextBox x:Name="TxtAppSearch" Grid.Column="0" Margin="0,0,8,0"
                          FontSize="12"/>
-                <TextBlock Text="🔍" Grid.Column="0" Foreground="#5C6370" FontSize="13"
+                <TextBlock Text="?" Grid.Column="0" Foreground="#5C6370" FontSize="13"
                            HorizontalAlignment="Right" VerticalAlignment="Center"
                            Margin="0,0,16,0" IsHitTestVisible="False"/>
-                <Button x:Name="BtnCarregarApps"  Grid.Column="1" Content="🔄 Carregar"
+                <Button x:Name="BtnCarregarApps"  Grid.Column="1" Content="Carregar"
                         Background="#4B5263" Foreground="#ABB2BF" Padding="10,5" Margin="0,0,6,0"/>
                 <Button x:Name="BtnMarcarTodos"   Grid.Column="2" Content="Marcar Todos"
                         Background="#4B5263" Foreground="#ABB2BF" Padding="10,5" Margin="0,0,6,0"/>
@@ -1722,7 +1722,7 @@ function Invoke-Async {
           <!-- Rodape -->
           <Border Grid.Row="2" Background="#1E2128" Padding="16,10">
             <StackPanel Orientation="Horizontal">
-              <Button x:Name="BtnCriarAtalho" Content="➕  Criar Atalhos Selecionados"
+              <Button x:Name="BtnCriarAtalho" Content="+ Criar Atalhos Selecionados"
                       Background="#98C379" Foreground="#1E2128" Padding="14,7" Margin="0,0,14,0"/>
               <TextBlock x:Name="TxtAppCount" Foreground="#5C6370" FontSize="11"
                          VerticalAlignment="Center"/>
@@ -1811,7 +1811,7 @@ function Invoke-Async {
           </Grid.ColumnDefinitions>
           <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
             <Border Width="7" Height="7" CornerRadius="4" Background="#3E4451" Margin="0,0,8,0"/>
-            <TextBlock Text="LOG DE SAÍDA" Foreground="#5C6370" FontSize="10"
+            <TextBlock Text="LOG DE SAIDA" Foreground="#5C6370" FontSize="10"
                        FontWeight="Bold" VerticalAlignment="Center"/>
           </StackPanel>
           <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
