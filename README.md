@@ -118,4 +118,4 @@ C:\Next-Relatorios\nexttool_<PC>_<yyyy-MM-dd_HH-mm-ss>.log
 
 ---
 
-*Desenvolvido pela equipe de TI da Next.*
+*Desenvolvido por Matheus.*
