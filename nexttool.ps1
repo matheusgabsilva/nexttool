@@ -1812,7 +1812,7 @@ function Invoke-Async {
           <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
             <Border Width="7" Height="7" CornerRadius="4" Background="#3E4451" Margin="0,0,8,0"/>
             <TextBlock Text="LOG DE SAÍDA" Foreground="#5C6370" FontSize="10"
-                       FontWeight="Bold" VerticalAlignment="Center" LetterSpacing="1"/>
+                       FontWeight="Bold" VerticalAlignment="Center"/>
           </StackPanel>
           <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
             <Button x:Name="BtnLimparLog" Content="limpar"
