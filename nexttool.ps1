@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 # ================================================================
-# NextTool v4.0 - Ferramenta de TI da Next (GUI)
+# NextTool v4.1 - Ferramenta de TI da Next (GUI)
 # github.com/matheusgabsilva/nexttool
 #
 # Uso via URL:
@@ -41,7 +41,7 @@ Add-Type -AssemblyName System.Windows.Forms
 # ================================================================
 # CONFIGURACAO GLOBAL
 # ================================================================
-$script:VERSION    = "4.0"
+$script:VERSION    = "4.1"
 $script:REPORT_DIR = "C:\Next-Relatorios"
 $script:SESSION_TS = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $script:LOG_FILE   = Join-Path $script:REPORT_DIR "nexttool_$($env:COMPUTERNAME)_$script:SESSION_TS.log"
@@ -1008,7 +1008,7 @@ function Invoke-Async {
 <Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="NextTool v4.0 - Ferramenta de TI"
+    Title="NextTool v4.1 - Ferramenta de TI"
     Height="740" Width="1020"
     MinHeight="620" MinWidth="860"
     WindowStartupLocation="CenterScreen"
@@ -1017,64 +1017,171 @@ function Invoke-Async {
     FontSize="13">
 
   <Window.Resources>
+
+    <!-- ── BUTTON ─────────────────────────────────────────────── -->
     <Style TargetType="Button">
-      <Setter Property="Background" Value="#61AFEF"/>
-      <Setter Property="Foreground" Value="#1E2128"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Padding" Value="14,7"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Background"        Value="#61AFEF"/>
+      <Setter Property="Foreground"        Value="#1E2128"/>
+      <Setter Property="FontWeight"        Value="SemiBold"/>
+      <Setter Property="Padding"           Value="14,7"/>
+      <Setter Property="BorderThickness"   Value="0"/>
+      <Setter Property="Cursor"            Value="Hand"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
-            <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
-              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <Border x:Name="BtnBorder" Background="{TemplateBinding Background}"
+                    CornerRadius="6" Padding="{TemplateBinding Padding}">
+              <Grid>
+                <Border x:Name="HoverOverlay" Background="White" CornerRadius="6" Opacity="0"/>
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Grid>
             </Border>
             <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.82"/></Trigger>
-              <Trigger Property="IsPressed"   Value="True"><Setter Property="Opacity" Value="0.65"/></Trigger>
-              <Trigger Property="IsEnabled"   Value="False"><Setter Property="Opacity" Value="0.35"/></Trigger>
+              <EventTrigger RoutedEvent="MouseEnter">
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="HoverOverlay"
+                                     Storyboard.TargetProperty="Opacity"
+                                     To="0.15" Duration="0:0:0.12"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </EventTrigger>
+              <EventTrigger RoutedEvent="MouseLeave">
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="HoverOverlay"
+                                     Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.12"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </EventTrigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="HoverOverlay" Property="Opacity" Value="0.28"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.35"/>
+              </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
         </Setter.Value>
       </Setter>
     </Style>
+
+    <!-- ── CHECKBOX ────────────────────────────────────────────── -->
     <Style TargetType="CheckBox">
       <Setter Property="Foreground" Value="#ABB2BF"/>
-      <Setter Property="Margin" Value="0,5"/>
-      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Margin"     Value="0,5"/>
+      <Setter Property="Cursor"     Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="CheckBox">
+            <StackPanel Orientation="Horizontal" Background="Transparent">
+              <Border x:Name="ChkBox" Width="16" Height="16" CornerRadius="4"
+                      BorderBrush="#3E4451" BorderThickness="1.5"
+                      Background="Transparent" VerticalAlignment="Center" Margin="0,0,8,0">
+                <Path x:Name="ChkMark" Visibility="Collapsed"
+                      Data="M3,8 L7,12 L14,4"
+                      Stroke="#1E2128" StrokeThickness="1.8"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+              <ContentPresenter VerticalAlignment="Center"/>
+            </StackPanel>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="ChkBox"  Property="Background"  Value="#61AFEF"/>
+                <Setter TargetName="ChkBox"  Property="BorderBrush" Value="#61AFEF"/>
+                <Setter TargetName="ChkMark" Property="Visibility"  Value="Visible"/>
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ChkBox" Property="BorderBrush" Value="#61AFEF"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
+
+    <!-- ── TEXTBOX ─────────────────────────────────────────────── -->
     <Style TargetType="TextBox">
-      <Setter Property="Background" Value="#1E2128"/>
-      <Setter Property="Foreground" Value="#ABB2BF"/>
-      <Setter Property="BorderBrush" Value="#3E4451"/>
+      <Setter Property="Background"      Value="#1E2128"/>
+      <Setter Property="Foreground"      Value="#ABB2BF"/>
+      <Setter Property="CaretBrush"      Value="#ABB2BF"/>
+      <Setter Property="BorderBrush"     Value="#3E4451"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Padding" Value="8,5"/>
-      <Setter Property="CaretBrush" Value="#ABB2BF"/>
+      <Setter Property="Padding"         Value="8,6"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TextBox">
+            <Border x:Name="TxtBorder"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="5" Padding="{TemplateBinding Padding}">
+              <ScrollViewer x:Name="PART_ContentHost" Focusable="False"
+                            HorizontalScrollBarVisibility="Hidden"
+                            VerticalScrollBarVisibility="Hidden"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsFocused" Value="True">
+                <Setter TargetName="TxtBorder" Property="BorderBrush" Value="#61AFEF"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
+
+    <!-- ── PASSWORDBOX ─────────────────────────────────────────── -->
     <Style TargetType="PasswordBox">
-      <Setter Property="Background" Value="#1E2128"/>
-      <Setter Property="Foreground" Value="#ABB2BF"/>
-      <Setter Property="BorderBrush" Value="#3E4451"/>
+      <Setter Property="Background"      Value="#1E2128"/>
+      <Setter Property="Foreground"      Value="#ABB2BF"/>
+      <Setter Property="BorderBrush"     Value="#3E4451"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Padding" Value="8,5"/>
+      <Setter Property="Padding"         Value="8,6"/>
     </Style>
+
+    <!-- ── GROUPBOX ────────────────────────────────────────────── -->
     <Style TargetType="GroupBox">
-      <Setter Property="Foreground" Value="#5C6370"/>
-      <Setter Property="BorderBrush" Value="#3E4451"/>
-      <Setter Property="Margin" Value="0,0,0,14"/>
-      <Setter Property="Padding" Value="10,8"/>
+      <Setter Property="Margin"  Value="0,0,0,16"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="GroupBox">
+            <Grid>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+              </Grid.RowDefinitions>
+              <Border Grid.Row="0" BorderBrush="#3E4451" BorderThickness="0,0,0,1">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                  <Border Width="3" CornerRadius="2" Background="#61AFEF" Margin="0,2,10,2"/>
+                  <ContentPresenter ContentSource="Header"
+                                    TextElement.Foreground="#ABB2BF"
+                                    TextElement.FontWeight="SemiBold"
+                                    TextElement.FontSize="12"
+                                    VerticalAlignment="Center"/>
+                </StackPanel>
+              </Border>
+              <ContentPresenter Grid.Row="1" Margin="0,10,0,0"/>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
+
+    <!-- ── TABCONTROL / TABITEM ────────────────────────────────── -->
     <Style TargetType="TabControl">
-      <Setter Property="Background" Value="#21252B"/>
-      <Setter Property="BorderBrush" Value="#3E4451"/>
+      <Setter Property="Background"      Value="#21252B"/>
+      <Setter Property="BorderBrush"     Value="#3E4451"/>
       <Setter Property="BorderThickness" Value="0,1,0,0"/>
+      <Setter Property="Padding"         Value="0"/>
     </Style>
     <Style TargetType="TabItem">
-      <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="Foreground" Value="#5C6370"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Padding" Value="18,11"/>
+      <Setter Property="Background"      Value="Transparent"/>
+      <Setter Property="Foreground"      Value="#5C6370"/>
+      <Setter Property="FontWeight"      Value="SemiBold"/>
+      <Setter Property="Padding"         Value="18,11"/>
       <Setter Property="BorderThickness" Value="0"/>
       <Setter Property="Template">
         <Setter.Value>
@@ -1087,7 +1194,7 @@ function Invoke-Async {
             <ControlTemplate.Triggers>
               <Trigger Property="IsSelected" Value="True">
                 <Setter TargetName="TabBorder" Property="BorderBrush" Value="#61AFEF"/>
-                <Setter Property="Foreground" Value="#61AFEF"/>
+                <Setter Property="Foreground" Value="#ABB2BF"/>
               </Trigger>
               <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Foreground" Value="#ABB2BF"/>
@@ -1097,34 +1204,104 @@ function Invoke-Async {
         </Setter.Value>
       </Setter>
     </Style>
+
+    <!-- ── LABEL / SEPARATOR / PROGRESSBAR ────────────────────── -->
     <Style TargetType="Label">
       <Setter Property="Foreground" Value="#5C6370"/>
-      <Setter Property="Padding" Value="0,0,0,2"/>
-      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Padding"    Value="0,0,0,2"/>
+      <Setter Property="FontSize"   Value="11"/>
     </Style>
     <Style TargetType="Separator">
       <Setter Property="Background" Value="#3E4451"/>
-      <Setter Property="Margin" Value="0,8"/>
-    </Style>
-    <Style TargetType="ListView">
-      <Setter Property="Background" Value="#1E2128"/>
-      <Setter Property="Foreground" Value="#ABB2BF"/>
-      <Setter Property="BorderBrush" Value="#3E4451"/>
-      <Setter Property="BorderThickness" Value="1"/>
-    </Style>
-    <Style TargetType="GridViewColumnHeader">
-      <Setter Property="Background" Value="#2D3139"/>
-      <Setter Property="Foreground" Value="#61AFEF"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="BorderBrush" Value="#3E4451"/>
-      <Setter Property="Padding" Value="8,4"/>
+      <Setter Property="Margin"     Value="0,8"/>
     </Style>
     <Style TargetType="ProgressBar">
-      <Setter Property="Height" Value="14"/>
-      <Setter Property="Background" Value="#2D3139"/>
+      <Setter Property="Height"          Value="4"/>
+      <Setter Property="Background"      Value="#2D3139"/>
       <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Foreground" Value="#61AFEF"/>
+      <Setter Property="Foreground"      Value="#61AFEF"/>
     </Style>
+
+    <!-- ── LISTVIEW / LISTVIEWITEM ─────────────────────────────── -->
+    <Style TargetType="ListView">
+      <Setter Property="Background"      Value="#1E2128"/>
+      <Setter Property="Foreground"      Value="#ABB2BF"/>
+      <Setter Property="BorderBrush"     Value="#3E4451"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style TargetType="ListViewItem">
+      <Setter Property="Foreground"      Value="#ABB2BF"/>
+      <Setter Property="Padding"         Value="4,3"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ListViewItem">
+            <Border x:Name="ItemBorder" Background="Transparent"
+                    BorderThickness="0" Padding="{TemplateBinding Padding}">
+              <GridViewRowPresenter VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ItemBorder" Property="Background" Value="#2D3139"/>
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="ItemBorder" Property="Background" Value="#3A3F4B"/>
+                <Setter Property="Foreground" Value="#FFFFFF"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style TargetType="GridViewColumnHeader">
+      <Setter Property="Background"  Value="#21252B"/>
+      <Setter Property="Foreground"  Value="#61AFEF"/>
+      <Setter Property="FontWeight"  Value="SemiBold"/>
+      <Setter Property="BorderBrush" Value="#3E4451"/>
+      <Setter Property="Padding"     Value="8,5"/>
+    </Style>
+
+    <!-- ── SCROLLBAR (slim) ────────────────────────────────────── -->
+    <Style TargetType="ScrollBar">
+      <Setter Property="Stylus.IsFlicksEnabled" Value="False"/>
+      <Setter Property="Width"    Value="8"/>
+      <Setter Property="MinWidth" Value="8"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ScrollBar">
+            <Grid Background="Transparent" Width="8">
+              <Track x:Name="PART_Track" IsDirectionReversed="True" Margin="0,2">
+                <Track.DecreaseRepeatButton>
+                  <RepeatButton Command="ScrollBar.LineUpCommand" Opacity="0" Focusable="False">
+                    <RepeatButton.Template>
+                      <ControlTemplate TargetType="RepeatButton"><Border/></ControlTemplate>
+                    </RepeatButton.Template>
+                  </RepeatButton>
+                </Track.DecreaseRepeatButton>
+                <Track.IncreaseRepeatButton>
+                  <RepeatButton Command="ScrollBar.LineDownCommand" Opacity="0" Focusable="False">
+                    <RepeatButton.Template>
+                      <ControlTemplate TargetType="RepeatButton"><Border/></ControlTemplate>
+                    </RepeatButton.Template>
+                  </RepeatButton>
+                </Track.IncreaseRepeatButton>
+                <Track.Thumb>
+                  <Thumb>
+                    <Thumb.Template>
+                      <ControlTemplate TargetType="Thumb">
+                        <Border Background="#4B5263" CornerRadius="4" Margin="2,0"/>
+                      </ControlTemplate>
+                    </Thumb.Template>
+                  </Thumb>
+                </Track.Thumb>
+              </Track>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
   </Window.Resources>
 
   <Grid>
@@ -1135,27 +1312,47 @@ function Invoke-Async {
     </Grid.RowDefinitions>
 
     <!-- HEADER -->
-    <Border Grid.Row="0" Background="#21252B" BorderBrush="#3E4451" BorderThickness="0,0,0,1">
-      <Grid Margin="20,0">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*"/>
-          <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-          <TextBlock Text="Next" FontSize="22" FontWeight="Bold" Foreground="#61AFEF"/>
-          <TextBlock Text="Tool" FontSize="22" FontWeight="Bold" Foreground="#ABB2BF"/>
-          <TextBlock Text="  v4.0" FontSize="11" Foreground="#5C6370" VerticalAlignment="Bottom" Margin="2,0,0,4"/>
-          <TextBlock Text="  |  Ferramenta de TI" FontSize="11" Foreground="#5C6370" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
-        </StackPanel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,4,0">
-          <TextBlock x:Name="HdrPC"     Foreground="#5C6370" FontSize="11" VerticalAlignment="Center" Margin="0,0,16,0"/>
-          <TextBlock x:Name="HdrUptime" Foreground="#5C6370" FontSize="11" VerticalAlignment="Center" Margin="0,0,16,0"/>
-          <Button x:Name="BtnRelatorio" Content="📁 Relatórios"
-                  Background="#4B5263" Foreground="#ABB2BF" FontSize="11"
-                  Padding="10,5" FontWeight="Normal"/>
-        </StackPanel>
-      </Grid>
-    </Border>
+    <Grid Grid.Row="0" Background="#21252B">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="2"/>
+        <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+      <!-- Faixa gradiente no topo -->
+      <Border Grid.Row="0">
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#61AFEF" Offset="0"/>
+            <GradientStop Color="#98C379" Offset="0.45"/>
+            <GradientStop Color="#C678DD" Offset="1"/>
+          </LinearGradientBrush>
+        </Border.Background>
+      </Border>
+      <!-- Conteúdo do header -->
+      <Border Grid.Row="1" BorderBrush="#3E4451" BorderThickness="0,0,0,1">
+        <Grid Margin="20,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock Text="Next" FontSize="22" FontWeight="Bold" Foreground="#61AFEF"/>
+            <TextBlock Text="Tool" FontSize="22" FontWeight="Bold" Foreground="#ABB2BF"/>
+            <Border Background="#2D3139" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
+              <TextBlock Text="v4.1" FontSize="10" Foreground="#5C6370" FontWeight="SemiBold"/>
+            </Border>
+            <TextBlock Text="  Ferramenta de TI" FontSize="11" Foreground="#5C6370"
+                       VerticalAlignment="Center" Margin="10,0,0,0"/>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,4,0">
+            <TextBlock x:Name="HdrPC"     Foreground="#5C6370" FontSize="11" VerticalAlignment="Center" Margin="0,0,16,0"/>
+            <TextBlock x:Name="HdrUptime" Foreground="#5C6370" FontSize="11" VerticalAlignment="Center" Margin="0,0,16,0"/>
+            <Button x:Name="BtnRelatorio" Content="📁 Relatórios"
+                    Background="#2D3139" Foreground="#ABB2BF" FontSize="11"
+                    Padding="10,5" FontWeight="Normal"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
 
     <!-- TABS -->
     <TabControl Grid.Row="1" x:Name="MainTabs" Margin="0">
@@ -1602,21 +1799,32 @@ function Invoke-Async {
     <!-- LOG PANEL -->
     <Grid Grid.Row="2" Background="#1E2128" MinHeight="220">
       <Grid.RowDefinitions>
-        <RowDefinition Height="26"/>
+        <RowDefinition Height="28"/>
         <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
-      <Border Grid.Row="0" Background="#21252B" BorderBrush="#3E4451" BorderThickness="0,1,0,0">
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0">
-          <TextBlock Text="Log de saída" Foreground="#5C6370" FontSize="11" FontWeight="SemiBold"/>
-          <Button x:Name="BtnLimparLog" Content="limpar"
-                  Padding="8,1" Margin="14,0,0,0"
-                  Background="Transparent" Foreground="#5C6370"
-                  FontSize="10" FontWeight="Normal"/>
-          <Button x:Name="BtnExportLog" Content="exportar"
-                  Padding="8,1" Margin="6,0,0,0"
-                  Background="Transparent" Foreground="#5C6370"
-                  FontSize="10" FontWeight="Normal"/>
-        </StackPanel>
+      <Border Grid.Row="0" Background="#21252B" BorderBrush="#3E4451" BorderThickness="0,1,0,1">
+        <Grid Margin="14,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+            <Border Width="7" Height="7" CornerRadius="4" Background="#3E4451" Margin="0,0,8,0"/>
+            <TextBlock Text="LOG DE SAÍDA" Foreground="#5C6370" FontSize="10"
+                       FontWeight="Bold" VerticalAlignment="Center" LetterSpacing="1"/>
+          </StackPanel>
+          <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button x:Name="BtnLimparLog" Content="limpar"
+                    Padding="8,2" Margin="0,0,4,0"
+                    Background="Transparent" Foreground="#5C6370"
+                    FontSize="10" FontWeight="Normal"/>
+            <Button x:Name="BtnExportLog" Content="exportar"
+                    Padding="8,2"
+                    Background="Transparent" Foreground="#5C6370"
+                    FontSize="10" FontWeight="Normal"/>
+          </StackPanel>
+        </Grid>
       </Border>
       <ListBox Grid.Row="1" x:Name="LogBox"
                Background="#1E2128" BorderThickness="0" Padding="10,4"
