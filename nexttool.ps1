@@ -24,7 +24,7 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     exit
 }
 
-# === OCULTAR JANELA DO CONSOLE (sem relançar — funciona com arquivo e com irm|iex) ===
+# === OCULTAR JANELA DO CONSOLE (sem relançar - funciona com arquivo e com irm|iex) ===
 try {
     Add-Type -Name NativeWindow -Namespace NextTool -MemberDefinition '
         [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
@@ -511,7 +511,7 @@ function Invoke-Diagnostico {
     try {
         $tpm = Get-Tpm -ErrorAction Stop
         if ($tpm.TpmPresent) {
-            # SpecVersion ex: "2.0, 0, 1.59" — pega o primeiro segmento
+            # SpecVersion ex: "2.0, 0, 1.59" - pega o primeiro segmento
             $tpmVer = try { ((Get-CimInstance -Namespace "root/cimv2/security/microsofttpm" -ClassName Win32_Tpm -ErrorAction Stop).SpecVersion -split ",")[0].Trim() } catch { "" }
             Write-Log " TPM: Presente$(if ($tpmVer){" (spec $tpmVer)"})" "PLAIN"
         } else { Write-Log " TPM: Nao detectado" "PLAIN" }
@@ -698,7 +698,7 @@ function Invoke-TestarConectividade {
     try {
         & tracert.exe -h 10 -w 1000 8.8.8.8 2>&1 | Where-Object { $_ -match "^\s*\d+" } |
             ForEach-Object { Write-Log $_.Trim() "PLAIN" }
-    } catch { Write-Log "Tracert: erro — $_" "ERRO" }
+    } catch { Write-Log "Tracert: erro - $_" "ERRO" }
     Write-Log "-- Netstat (conexoes estabelecidas) --" "INFO"
     try {
         & netstat.exe -n 2>&1 | Where-Object { $_ -match "ESTABLISHED" } | Select-Object -First 20 |
@@ -1949,7 +1949,7 @@ $BtnLimparLog       = $Window.FindName("BtnLimparLog")
 $BtnExportLog       = $Window.FindName("BtnExportLog")
 
 # ================================================================
-# TIMER — drena filas dos runspaces para a UI
+# TIMER - drena filas dos runspaces para a UI
 # ================================================================
 $LogTimer = New-Object System.Windows.Threading.DispatcherTimer
 $LogTimer.Interval = [TimeSpan]::FromMilliseconds(120)
@@ -2070,7 +2070,7 @@ try {
         [System.Windows.Controls.Grid]::SetColumn($pb, 1)
 
         $info = New-Object System.Windows.Controls.TextBlock
-        $info.Text = "${usedGB}GB / ${totalGB}GB  (${freeGB}GB livre — ${pct}%)"
+        $info.Text = "${usedGB}GB / ${totalGB}GB  (${freeGB}GB livre - ${pct}%)"
         $info.FontSize = 11; $info.VerticalAlignment = "Center"
         $info.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFrom("#5C6370")
         [System.Windows.Controls.Grid]::SetColumn($info, 2)
@@ -2334,7 +2334,8 @@ $BtnAnalisarPasta.Add_Click({
 # --- Log ---
 $BtnLimparLog.Add_Click({ $LogBox.Items.Clear() })
 $BtnExportLog.Add_Click({
-    $dest = "$script:REPORT_DIR\nexttool_log_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
+    $ts   = Get-Date -Format "yyyyMMdd_HHmmss"
+    $dest = "$script:REPORT_DIR\nexttool_log_$ts.txt"
     $LogBox.Items | ForEach-Object { $_.Text } | Out-File -FilePath $dest -Encoding UTF8
     Write-Log "Log exportado: $dest" "OK"
 })
