@@ -1905,11 +1905,11 @@ function Invoke-Async {
             <StackPanel Grid.Column="0">
               <GroupBox Header="Ferramentas de rede">
                 <WrapPanel Margin="4,4">
-                  <Button x:Name="BtnListarAdapters" Content="Listar Adaptadores"   Margin="0,0,8,8"/>
-                  <Button x:Name="BtnTestarConect"   Content="Testar Conectividade" Margin="0,0,8,8"/>
-                  <Button x:Name="BtnIPConfig"       Content="IPConfig /all"        Margin="0,0,0,8"/>
-                  <Button x:Name="BtnVerificarDominio" Content="Status Dominio"     Margin="0,0,8,0"/>
-                  <Button x:Name="BtnIPInfo"          Content="Info Rede Completa"  Margin="0,0,0,0"/>
+                  <Button x:Name="BtnListarAdapters"   Content="Listar Adaptadores"   Padding="14,8" Margin="0,0,8,0"/>
+                  <Button x:Name="BtnTestarConect"     Content="Testar Conectividade" Padding="14,8" Margin="0,0,8,0"/>
+                  <Button x:Name="BtnIPConfig"         Content="IPConfig /all"        Padding="14,8" Margin="0,0,8,0"/>
+                  <Button x:Name="BtnVerificarDominio" Content="Status Dominio"       Padding="14,8" Margin="0,0,8,0"/>
+                  <Button x:Name="BtnIPInfo"           Content="Info Rede Completa"   Padding="14,8" Margin="0,0,0,0"/>
                 </WrapPanel>
               </GroupBox>
 
