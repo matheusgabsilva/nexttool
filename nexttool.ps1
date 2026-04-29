@@ -2513,8 +2513,14 @@ try {
 # --- Sistema ---
 $BtnDiagnostico.Add_Click({       Invoke-Async { Invoke-Diagnostico } })
 $BtnAtualizarDrivers.Add_Click({  Invoke-Async { Invoke-TweakDrivers } })
-$BtnExportarRelatorio.Add_Click({ Invoke-Async { Export-RelatorioHTML -ReportDir $V.Dir } -Vars @{ Dir = $script:REPORT_DIR } })
-$BtnHistoricoLogs.Add_Click({     Invoke-Async { Invoke-HistoricoLogs -ReportDir $V.Dir } -Vars @{ Dir = $script:REPORT_DIR } })
+$BtnExportarRelatorio.Add_Click({
+    $dir = $script:REPORT_DIR
+    Invoke-Async { Export-RelatorioHTML -ReportDir $V.Dir } -Vars @{ Dir = $dir }
+})
+$BtnHistoricoLogs.Add_Click({
+    $dir = $script:REPORT_DIR
+    Invoke-Async { Invoke-HistoricoLogs -ReportDir $V.Dir } -Vars @{ Dir = $dir }
+})
 $BtnRelatorio.Add_Click({        Start-Process explorer.exe $script:REPORT_DIR })
 
 # --- Manutencao ---
