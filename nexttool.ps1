@@ -838,8 +838,11 @@ function Set-DesktopIconState {
     $guid = $DesktopIconGuids[$IconName]
     if (-not $guid) { Write-Log "Icone '$IconName' nao encontrado." "ERRO"; return }
     Set-ItemProperty -Path $regPath -Name $guid -Value ([int](-not $Visible)) -Type DWord -Force
-    # Atualiza o Explorer para refletir a mudança imediatamente
-    try { & rundll32.exe user32.dll, UpdatePerUserSystemParameters, 1, True } catch {}
+    # Notifica o Shell para atualizar icones imediatamente
+    try {
+        Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class ShellNotify{[DllImport("shell32.dll")]public static extern void SHChangeNotify(int e,uint f,IntPtr a,IntPtr b);}' -ErrorAction SilentlyContinue
+        [ShellNotify]::SHChangeNotify(0x8000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
+    } catch {}
     Write-Log "Icone '$IconName': $(if ($Visible){'visivel'}else{'oculto'})." "OK"
 }
 
