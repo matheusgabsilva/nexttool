@@ -1318,7 +1318,7 @@ function Invoke-Async {
 <Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="NextTool v4.1 - Ferramenta de TI Next"
+    Title="NextTool v4.1"
     Height="740" Width="1020"
     MinHeight="620" MinWidth="860"
     WindowStartupLocation="CenterScreen"
@@ -1650,8 +1650,6 @@ function Invoke-Async {
             <Border Background="#2D3139" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
               <TextBlock Text="v4.1" FontSize="10" Foreground="#5C6370" FontWeight="SemiBold"/>
             </Border>
-            <TextBlock Text="  Ferramenta de TI Next" FontSize="11" Foreground="#5C6370"
-                       VerticalAlignment="Center" Margin="10,0,0,0"/>
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,4,0">
             <TextBlock x:Name="HdrPC"     Foreground="#5C6370" FontSize="11" VerticalAlignment="Center" Margin="0,0,16,0"/>
