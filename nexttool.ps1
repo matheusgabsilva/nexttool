@@ -43,10 +43,10 @@ Add-Type -AssemblyName System.Windows.Forms
 # ================================================================
 $script:VERSION      = "4.1"
 $script:REPORT_DIR   = "C:\Next-Relatorios"
-$script:SENHA_PADRAO = "next@2025"          # Senha padrao — altere aqui antes de distribuir
+$script:SENHA_PADRAO = "101167nr#"          # Senha padrao — altere aqui antes de distribuir
 $script:REG_PATH     = "HKLM:\SOFTWARE\NextTool"
 $script:MODE         = "USER"               # USER ou ADMIN
-$script:SESSION_TS = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$script:SESSION_TS = Get-Date -Format "dd-MM-yyyy_HH-mm-ss"
 $script:LOG_FILE   = Join-Path $script:REPORT_DIR "nexttool_$($env:COMPUTERNAME)_$script:SESSION_TS.log"
 $script:LogQueue   = [System.Collections.Concurrent.ConcurrentQueue[object]]::new()
 $script:FolderQueue= [System.Collections.Concurrent.ConcurrentQueue[object]]::new()
@@ -447,7 +447,7 @@ function Export-RelatorioHTML {
     Write-Log "=== GERANDO RELATORIO HTML ===" "STEP"
     try {
         if (-not (Test-Path $ReportDir)) { New-Item -Path $ReportDir -ItemType Directory -Force | Out-Null }
-        $ts   = Get-Date -Format "yyyyMMdd_HHmmss"
+        $ts   = Get-Date -Format "dd-MM-yyyy_HH-mm-ss"
         $file = "$ReportDir\relatorio_$($env:COMPUTERNAME)_$ts.html"
 
         $cs   = Get-CimInstance Win32_ComputerSystem
@@ -3409,7 +3409,7 @@ $LvFiles.Add_MouseDoubleClick({
 # --- Log ---
 $BtnLimparLog.Add_Click({ $LogBox.Items.Clear() })
 $BtnExportLog.Add_Click({
-    $ts   = Get-Date -Format "yyyyMMdd_HHmmss"
+    $ts   = Get-Date -Format "dd-MM-yyyy_HH-mm-ss"
     $dest = "$script:REPORT_DIR\Next_Suporte_$($env:COMPUTERNAME)_$ts.txt"
     $LogBox.Items | ForEach-Object { $_.Text } | Out-File -FilePath $dest -Encoding UTF8
     Write-Log "Log exportado: $dest" "OK"
