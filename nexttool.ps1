@@ -43,7 +43,7 @@ Add-Type -AssemblyName System.Windows.Forms
 # ================================================================
 $script:VERSION      = "4.1"
 $script:REPORT_DIR   = "C:\Next-Relatorios"
-$script:SENHA_PADRAO = "101167nr#"          # Senha padrao — altere aqui antes de distribuir
+$script:SENHA_PADRAO = "101167Nr#"          # Senha padrao — altere aqui antes de distribuir
 $script:REG_PATH     = "HKLM:\SOFTWARE\NextTool"
 $script:MODE         = "USER"               # USER ou ADMIN
 $script:SESSION_TS = Get-Date -Format "dd-MM-yyyy_HH-mm-ss"
