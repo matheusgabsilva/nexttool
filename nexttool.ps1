@@ -1788,6 +1788,12 @@ function Invoke-Async {
                 </Grid>
               </GroupBox>
 
+              <!-- Diagnostico -->
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                <Button x:Name="UBtnDiagnostico" Content="Executar Diagnostico Completo"
+                        Background="#61AFEF" Foreground="#1E2128" Padding="18,10" FontWeight="SemiBold"/>
+              </StackPanel>
+
               <!-- Ajuda: Relatorio -->
               <GroupBox Header="Como enviar informacoes para o suporte">
                 <Grid Margin="4,4">
@@ -1805,13 +1811,15 @@ function Invoke-Async {
                         </Border>
                         <TextBlock Text="Log da sessao atual" Foreground="#ABB2BF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
                       </StackPanel>
-                      <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
-                                 Text="Clique em 'Exportar' no rodape da tela (canto inferior direito). Um arquivo .txt sera salvo automaticamente em:"/>
-                      <Border Background="#21252B" CornerRadius="3" Padding="8,5" Margin="0,6,0,6">
+                      <TextBlock TextWrapping="Wrap" Foreground="#E5C07B" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,4"
+                                 Text="1. Execute o Diagnostico Completo acima primeiro."/>
+                      <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11" Margin="0,0,0,4"
+                                 Text="2. Clique em 'Exportar' no rodape da tela. Um arquivo .txt sera salvo em:"/>
+                      <Border Background="#21252B" CornerRadius="3" Padding="8,5" Margin="0,4,0,6">
                         <TextBlock Foreground="#98C379" FontSize="11" FontFamily="Consolas" Text="C:\Next-Relatorios\"/>
                       </Border>
                       <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
-                                 Text="Encaminhe esse arquivo .txt para o suporte por e-mail ou WhatsApp. Ele contem todo o historico de acoes realizadas na sessao."/>
+                                 Text="3. Encaminhe o arquivo .txt ao suporte por e-mail ou WhatsApp."/>
                     </StackPanel>
                   </Border>
 
@@ -1823,13 +1831,15 @@ function Invoke-Async {
                         </Border>
                         <TextBlock Text="Historico de todas as sessoes" Foreground="#ABB2BF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
                       </StackPanel>
-                      <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
-                                 Text="Clique em 'Relatorios' no canto superior direito da tela. A pasta com todos os logs salvos sera aberta no Explorer."/>
-                      <Border Background="#21252B" CornerRadius="3" Padding="8,5" Margin="0,6,0,6">
+                      <TextBlock TextWrapping="Wrap" Foreground="#E5C07B" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,4"
+                                 Text="1. Execute o Diagnostico Completo acima primeiro."/>
+                      <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11" Margin="0,0,0,4"
+                                 Text="2. Clique em 'Relatorios' no canto superior direito. A pasta sera aberta:"/>
+                      <Border Background="#21252B" CornerRadius="3" Padding="8,5" Margin="0,4,0,6">
                         <TextBlock Foreground="#98C379" FontSize="11" FontFamily="Consolas" Text="C:\Next-Relatorios\"/>
                       </Border>
                       <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
-                                 Text="Cada arquivo tem o nome do PC e a data/hora. Envie o arquivo mais recente ao suporte para analise do historico completo."/>
+                                 Text="3. Envie o arquivo mais recente (nome do PC + data/hora) ao suporte."/>
                     </StackPanel>
                   </Border>
 
@@ -2024,6 +2034,74 @@ function Invoke-Async {
 
             </StackPanel>
           </ScrollViewer>
+        </TabItem>
+
+        <!-- ===== USER: ARMAZENAMENTO ===== -->
+        <TabItem Header="  Armazenamento  ">
+          <Grid Background="#21252B">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Discos -->
+            <GroupBox Grid.Row="0" Header="Discos" Margin="16,12,16,0">
+              <StackPanel x:Name="UDrivePanel" Margin="4,4"/>
+            </GroupBox>
+
+            <!-- Analisar pasta -->
+            <Grid Grid.Row="1" Margin="16,8,16,12">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+              </Grid.RowDefinitions>
+              <Border Grid.Row="0" Background="#1E2128" CornerRadius="4" Padding="12,8" Margin="0,0,0,8">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBox x:Name="UTxtAnalyzePath" Grid.Column="0" Text="C:\" Margin="0,0,8,0"/>
+                  <TextBlock Grid.Column="1" Text="Arquivos acima de" Foreground="#5C6370"
+                             VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11"/>
+                  <TextBox x:Name="UTxtMinMB" Grid.Column="2" Text="50" Width="50" Margin="0,0,8,0"/>
+                  <Button x:Name="UBtnAnalisarPasta" Grid.Column="3" Content="Analisar"
+                          Background="#61AFEF" Foreground="#1E2128"/>
+                </Grid>
+              </Border>
+              <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="12"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <GroupBox Grid.Column="0" Header="Subpastas  (por tamanho)  — duplo clique para abrir">
+                  <ListView x:Name="ULvFolders">
+                    <ListView.View>
+                      <GridView>
+                        <GridViewColumn Header="Pasta"   DisplayMemberBinding="{Binding Nome}"    Width="160"/>
+                        <GridViewColumn Header="Tamanho" DisplayMemberBinding="{Binding Tamanho}" Width="80"/>
+                        <GridViewColumn Header="Caminho" DisplayMemberBinding="{Binding Caminho}" Width="220"/>
+                      </GridView>
+                    </ListView.View>
+                  </ListView>
+                </GroupBox>
+                <GroupBox Grid.Column="2" Header="Maiores arquivos  — duplo clique para abrir pasta">
+                  <ListView x:Name="ULvFiles">
+                    <ListView.View>
+                      <GridView>
+                        <GridViewColumn Header="Arquivo"  DisplayMemberBinding="{Binding Nome}"    Width="160"/>
+                        <GridViewColumn Header="Tamanho"  DisplayMemberBinding="{Binding Tamanho}" Width="80"/>
+                        <GridViewColumn Header="Caminho"  DisplayMemberBinding="{Binding Caminho}" Width="220"/>
+                      </GridView>
+                    </ListView.View>
+                  </ListView>
+                </GroupBox>
+              </Grid>
+            </Grid>
+          </Grid>
         </TabItem>
 
       </TabControl>
@@ -2620,6 +2698,13 @@ $UTxtPingHost       = $Window.FindName("UTxtPingHost")
 $UBtnPing           = $Window.FindName("UBtnPing")
 $UBtnTracert        = $Window.FindName("UBtnTracert")
 $UBtnTestarConect   = $Window.FindName("UBtnTestarConect")
+$UBtnDiagnostico    = $Window.FindName("UBtnDiagnostico")
+$UDrivePanel        = $Window.FindName("UDrivePanel")
+$UTxtAnalyzePath    = $Window.FindName("UTxtAnalyzePath")
+$UTxtMinMB          = $Window.FindName("UTxtMinMB")
+$UBtnAnalisarPasta  = $Window.FindName("UBtnAnalisarPasta")
+$ULvFolders         = $Window.FindName("ULvFolders")
+$ULvFiles           = $Window.FindName("ULvFiles")
 $HdrPC              = $Window.FindName("HdrPC")
 $HdrUptime          = $Window.FindName("HdrUptime")
 $BtnRelatorio       = $Window.FindName("BtnRelatorio")
@@ -2764,12 +2849,12 @@ $LogTimer.Add_Tick({
 
     $res = $null
     if ($script:FolderQueue.TryDequeue([ref]$res)) {
-        $LvFolders.Items.Clear()
-        foreach ($r in $res) { [void]$LvFolders.Items.Add($r) }
+        $LvFolders.Items.Clear();  $ULvFolders.Items.Clear()
+        foreach ($r in $res) { [void]$LvFolders.Items.Add($r); [void]$ULvFolders.Items.Add($r) }
     }
     if ($script:FileQueue.TryDequeue([ref]$res)) {
-        $LvFiles.Items.Clear()
-        foreach ($r in $res) { [void]$LvFiles.Items.Add($r) }
+        $LvFiles.Items.Clear();  $ULvFiles.Items.Clear()
+        foreach ($r in $res) { [void]$LvFiles.Items.Add($r); [void]$ULvFiles.Items.Add($r) }
     }
     if ($script:UserQueue.TryDequeue([ref]$res)) {
         $LvUsers.Items.Clear()
@@ -2912,6 +2997,30 @@ try {
         $row.Children.Add($pb)  | Out-Null
         $row.Children.Add($info)| Out-Null
         $DrivePanel.Children.Add($row) | Out-Null
+
+        # Replica para o painel usuario
+        $row2 = New-Object System.Windows.Controls.Grid; $row2.Margin = "0,0,0,10"
+        $u1 = New-Object System.Windows.Controls.ColumnDefinition; $u1.Width = "60"
+        $u2 = New-Object System.Windows.Controls.ColumnDefinition; $u2.Width = "*"
+        $u3 = New-Object System.Windows.Controls.ColumnDefinition; $u3.Width = "210"
+        $row2.ColumnDefinitions.Add($u1); $row2.ColumnDefinitions.Add($u2); $row2.ColumnDefinitions.Add($u3)
+        $lbl2 = New-Object System.Windows.Controls.TextBlock
+        $lbl2.Text = "$($_.Name):"; $lbl2.FontWeight = "SemiBold"; $lbl2.VerticalAlignment = "Center"
+        $lbl2.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFrom("#ABB2BF")
+        [System.Windows.Controls.Grid]::SetColumn($lbl2, 0)
+        $pb2 = New-Object System.Windows.Controls.ProgressBar
+        $pb2.Value = $pct; $pb2.Maximum = 100; $pb2.VerticalAlignment = "Center"; $pb2.Margin = "0,0,12,0"
+        $pb2.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFrom($color)
+        [System.Windows.Controls.Grid]::SetColumn($pb2, 1)
+        $info2 = New-Object System.Windows.Controls.TextBlock
+        $info2.Text = "${usedGB}GB / ${totalGB}GB  (${freeGB}GB livre - ${pct}%)"
+        $info2.FontSize = 11; $info2.VerticalAlignment = "Center"
+        $info2.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFrom("#5C6370")
+        [System.Windows.Controls.Grid]::SetColumn($info2, 2)
+        $row2.Children.Add($lbl2) | Out-Null
+        $row2.Children.Add($pb2)  | Out-Null
+        $row2.Children.Add($info2)| Out-Null
+        $UDrivePanel.Children.Add($row2) | Out-Null
     }
 } catch {}
 
@@ -2974,7 +3083,33 @@ $UBtnTracert.Add_Click({
     $h = $UTxtPingHost.Text.Trim(); if (-not $h) { $h = "8.8.8.8" }
     Invoke-Async { Invoke-TracertVisual -Destino $H } -Vars @{ H = $h }
 })
-$UBtnTestarConect.Add_Click({ Invoke-Async { Invoke-TestarConectividade } })
+$UBtnTestarConect.Add_Click({  Invoke-Async { Invoke-TestarConectividade } })
+$UBtnDiagnostico.Add_Click({   Invoke-Async { Invoke-Diagnostico } })
+
+$UBtnAnalisarPasta.Add_Click({
+    $path  = $UTxtAnalyzePath.Text.Trim()
+    $minMB = try { [int]$UTxtMinMB.Text } catch { 50 }
+    if (-not $path) { $path = "C:\" }
+    if (-not (Test-Path $path)) { Write-Log "Pasta nao encontrada: $path" "ERRO"; return }
+    $ULvFolders.Items.Clear(); $ULvFiles.Items.Clear()
+    Invoke-Async { Invoke-AnalisarPasta -Path $P -MinMB $M } -Vars @{ P=$path; M=$minMB }
+})
+
+$ULvFolders.Add_MouseDoubleClick({
+    $sel = $ULvFolders.SelectedItem
+    if ($sel -and $sel.Caminho -and (Test-Path $sel.Caminho)) {
+        Start-Process explorer.exe $sel.Caminho
+    }
+})
+$ULvFiles.Add_MouseDoubleClick({
+    $sel = $ULvFiles.SelectedItem
+    if ($sel -and $sel.Caminho) {
+        $pasta = Split-Path $sel.Caminho -Parent
+        if (Test-Path $pasta) { Start-Process explorer.exe $pasta }
+    }
+})
+
+# Redireciona resultado de analise para os dois paineis
 
 # --- Sistema ---
 $BtnDiagnostico.Add_Click({       Invoke-Async { Invoke-Diagnostico } })
