@@ -41,8 +41,11 @@ Add-Type -AssemblyName System.Windows.Forms
 # ================================================================
 # CONFIGURACAO GLOBAL
 # ================================================================
-$script:VERSION    = "4.1"
-$script:REPORT_DIR = "C:\Next-Relatorios"
+$script:VERSION      = "4.1"
+$script:REPORT_DIR   = "C:\Next-Relatorios"
+$script:SENHA_PADRAO = "next@2025"          # Senha padrao — altere aqui antes de distribuir
+$script:REG_PATH     = "HKLM:\SOFTWARE\NextTool"
+$script:MODE         = "USER"               # USER ou ADMIN
 $script:SESSION_TS = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $script:LOG_FILE   = Join-Path $script:REPORT_DIR "nexttool_$($env:COMPUTERNAME)_$script:SESSION_TS.log"
 $script:LogQueue   = [System.Collections.Concurrent.ConcurrentQueue[object]]::new()
@@ -75,6 +78,75 @@ function Write-Log {
     $line = "$ts $tag $Message"
     if ($null -ne $LogQueue) { $LogQueue.Enqueue([PSCustomObject]@{ Text = $line; Color = $hex }) }
     try { Add-Content -Path $LOG_FILE -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+}
+
+# ================================================================
+# SENHA / MODO ADM
+# ================================================================
+function Get-SenhaHash {
+    param([string]$Texto)
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Texto)
+    $hash  = [System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes)
+    return ($hash | ForEach-Object { $_.ToString("x2") }) -join ""
+}
+
+function Initialize-Senha {
+    if (-not (Test-Path $script:REG_PATH)) {
+        New-Item -Path $script:REG_PATH -Force | Out-Null
+    }
+    $existing = (Get-ItemProperty -Path $script:REG_PATH -Name "AdminHash" -ErrorAction SilentlyContinue).AdminHash
+    if (-not $existing) {
+        $hash = Get-SenhaHash $script:SENHA_PADRAO
+        Set-ItemProperty -Path $script:REG_PATH -Name "AdminHash" -Value $hash -Force
+    }
+}
+
+function Test-SenhaAdm {
+    param([string]$Tentativa)
+    $stored = (Get-ItemProperty -Path $script:REG_PATH -Name "AdminHash" -ErrorAction SilentlyContinue).AdminHash
+    if (-not $stored) { return $false }
+    return ((Get-SenhaHash $Tentativa) -eq $stored)
+}
+
+function Set-SenhaAdm {
+    param([string]$NovaSenha)
+    if ($NovaSenha.Length -lt 4) { Write-Log "Senha deve ter ao menos 4 caracteres." "AVISO"; return }
+    $hash = Get-SenhaHash $NovaSenha
+    if (-not (Test-Path $script:REG_PATH)) { New-Item -Path $script:REG_PATH -Force | Out-Null }
+    Set-ItemProperty -Path $script:REG_PATH -Name "AdminHash" -Value $hash -Force
+    Write-Log "Senha ADM alterada com sucesso." "OK"
+}
+
+function Show-DialogSenha {
+    Add-Type -AssemblyName PresentationFramework
+    $dlgXaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Acesso ADM" Height="180" Width="340"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="#282C34" FontFamily="Segoe UI" FontSize="13">
+  <StackPanel Margin="24,20">
+    <TextBlock Text="Digite a senha ADM:" Foreground="#ABB2BF" Margin="0,0,0,10"/>
+    <PasswordBox x:Name="PbSenha" Background="#1E2128" Foreground="#ABB2BF"
+                 BorderBrush="#3E4451" BorderThickness="1" Padding="8,6" Margin="0,0,0,14"/>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button x:Name="BtnOk"      Content="Entrar"   Width="80" Height="30" Margin="0,0,8,0"
+              Background="#61AFEF" Foreground="#1E2128" FontWeight="SemiBold"/>
+      <Button x:Name="BtnCancel" Content="Cancelar" Width="80" Height="30"
+              Background="#4B5263" Foreground="#ABB2BF"/>
+    </StackPanel>
+  </StackPanel>
+</Window>
+"@
+    [xml]$dlgXml = $dlgXaml
+    $dlgReader   = New-Object System.Xml.XmlNodeReader $dlgXml
+    $dlg         = [Windows.Markup.XamlReader]::Load($dlgReader)
+    $pb          = $dlg.FindName("PbSenha")
+    $dlg.FindName("BtnOk").Add_Click({ $dlg.DialogResult = $true; $dlg.Close() })
+    $dlg.FindName("BtnCancel").Add_Click({ $dlg.DialogResult = $false; $dlg.Close() })
+    $pb.Add_KeyDown({ if ($_.Key -eq "Return") { $dlg.DialogResult = $true; $dlg.Close() } })
+    $dlg.ShowDialog() | Out-Null
+    if ($dlg.DialogResult -eq $true) { return $pb.Password } else { return $null }
 }
 
 # ================================================================
@@ -1657,6 +1729,15 @@ function Invoke-Async {
           <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,4,0">
             <TextBlock x:Name="HdrPC"     Foreground="#5C6370" FontSize="11" VerticalAlignment="Center" Margin="0,0,16,0"/>
             <TextBlock x:Name="HdrUptime" Foreground="#5C6370" FontSize="11" VerticalAlignment="Center" Margin="0,0,16,0"/>
+            <!-- Badge de modo -->
+            <Border x:Name="BadgeModo" Background="#2D3139" CornerRadius="4"
+                    Padding="8,3" Margin="0,0,10,0" VerticalAlignment="Center">
+              <TextBlock x:Name="TxtModo" Text="USUARIO" Foreground="#E5C07B"
+                         FontSize="10" FontWeight="Bold"/>
+            </Border>
+            <Button x:Name="BtnModoAdm" Content="Entrar ADM"
+                    Background="#E5C07B" Foreground="#1E2128" FontSize="11"
+                    Padding="10,5" FontWeight="SemiBold" Margin="0,0,8,0"/>
             <Button x:Name="BtnRelatorio" Content="Relatorios"
                     Background="#2D3139" Foreground="#ABB2BF" FontSize="11"
                     Padding="10,5" FontWeight="Normal"/>
@@ -1665,8 +1746,99 @@ function Invoke-Async {
       </Border>
     </Grid>
 
-    <!-- TABS -->
-    <TabControl Grid.Row="1" x:Name="MainTabs" Margin="0">
+    <!-- PAINEL USUARIO -->
+    <Grid x:Name="UserPanel" Grid.Row="1" Visibility="Visible">
+      <TabControl x:Name="UserTabs" Margin="0">
+
+        <!-- ===== USER: SISTEMA ===== -->
+        <TabItem Header="  Sistema  ">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#21252B">
+            <StackPanel Margin="20,16">
+              <GroupBox Header="Informacoes do Computador">
+                <Grid Margin="4,4">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                    <TextBlock Text="COMPUTADOR"        Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiPC"           Foreground="#ABB2BF" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <TextBlock Text="SISTEMA"           Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiOS"           Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                    <TextBlock Text="USUARIO"           Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiUser"         Foreground="#ABB2BF" FontSize="11"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                    <TextBlock Text="ENDERECO IP"       Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiIP"           Foreground="#ABB2BF" FontSize="11" Margin="0,0,0,8"/>
+                    <TextBlock Text="GATEWAY"           Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiGW"           Foreground="#ABB2BF" FontSize="11" Margin="0,0,0,8"/>
+                    <TextBlock Text="DNS"               Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiDNS"          Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="2">
+                    <TextBlock Text="DOMINIO"           Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiDomain"       Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                    <TextBlock Text="UPTIME"            Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiUptime"       Foreground="#ABB2BF" FontSize="11" Margin="0,0,0,8"/>
+                    <TextBlock Text="MEMORIA RAM"       Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiRAM"          Foreground="#ABB2BF" FontSize="11"/>
+                  </StackPanel>
+                </Grid>
+              </GroupBox>
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+
+        <!-- ===== USER: LIMPEZA ===== -->
+        <TabItem Header="  Limpeza  ">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#21252B">
+            <StackPanel Margin="20,16">
+              <GroupBox Header="Limpeza Rapida">
+                <WrapPanel Margin="4,4">
+                  <Button x:Name="UBtnOtimizar"      Content="Limpar Temporarios"    Width="185" Height="64" Margin="0,0,10,10"/>
+                  <Button x:Name="UBtnTeamsOffice"   Width="185" Height="64" Margin="0,0,10,10">
+                    <TextBlock Text="Limpar Cache Teams/Office" TextWrapping="Wrap" TextAlignment="Center"/>
+                  </Button>
+                  <Button x:Name="UBtnSpooler"       Width="185" Height="64" Margin="0,0,10,10">
+                    <TextBlock Text="Limpar Fila de Impressao" TextWrapping="Wrap" TextAlignment="Center"/>
+                  </Button>
+                  <Button x:Name="UBtnFlushDns"      Content="Flush DNS"             Width="185" Height="64" Margin="0,0,10,10"/>
+                  <Button x:Name="UBtnRenovarIP"     Content="Renovar IP (DHCP)"     Width="185" Height="64" Margin="0,0,10,10"/>
+                  <Button x:Name="UBtnSincHora"      Content="Sincronizar Hora"      Width="185" Height="64" Margin="0,0,10,10"/>
+                </WrapPanel>
+              </GroupBox>
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+
+        <!-- ===== USER: REDE ===== -->
+        <TabItem Header="  Rede  ">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#21252B">
+            <StackPanel Margin="20,16">
+              <GroupBox Header="Teste de Rede">
+                <StackPanel Margin="4,4">
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <TextBox x:Name="UTxtPingHost" Text="8.8.8.8" Width="200" Margin="0,0,8,0"/>
+                    <Button x:Name="UBtnPing"           Content="Ping"              Padding="14,8" Margin="0,0,8,0"/>
+                    <Button x:Name="UBtnTracert"        Content="Tracert"           Padding="14,8" Margin="0,0,8,0"
+                            Background="#4B5263" Foreground="#ABB2BF"/>
+                    <Button x:Name="UBtnTestarConect"   Content="Testar Conexao"    Padding="14,8"/>
+                  </StackPanel>
+                </StackPanel>
+              </GroupBox>
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+
+      </TabControl>
+    </Grid>
+
+    <!-- PAINEL ADM -->
+    <Grid x:Name="AdminPanel" Grid.Row="1" Visibility="Collapsed">
+    <!-- TABS ADM -->
+    <TabControl x:Name="MainTabs" Margin="0">
 
       <!-- ===== SISTEMA ===== -->
       <TabItem Header="  Sistema  ">
@@ -2177,6 +2349,7 @@ function Invoke-Async {
       </TabItem>
 
     </TabControl>
+    </Grid><!-- fim AdminPanel -->
 
     <!-- LOG PANEL -->
     <Grid Grid.Row="2" Background="#1E2128" MinHeight="220">
@@ -2227,6 +2400,32 @@ $reader = New-Object System.Xml.XmlNodeReader $XAML
 $Window = [Windows.Markup.XamlReader]::Load($reader)
 
 # Controles
+# --- Modo ---
+$UserPanel          = $Window.FindName("UserPanel")
+$AdminPanel         = $Window.FindName("AdminPanel")
+$BtnModoAdm         = $Window.FindName("BtnModoAdm")
+$TxtModo            = $Window.FindName("TxtModo")
+$BadgeModo          = $Window.FindName("BadgeModo")
+# --- User mode controls ---
+$USiPC              = $Window.FindName("USiPC")
+$USiOS              = $Window.FindName("USiOS")
+$USiUser            = $Window.FindName("USiUser")
+$USiIP              = $Window.FindName("USiIP")
+$USiGW              = $Window.FindName("USiGW")
+$USiDNS             = $Window.FindName("USiDNS")
+$USiDomain          = $Window.FindName("USiDomain")
+$USiUptime          = $Window.FindName("USiUptime")
+$USiRAM             = $Window.FindName("USiRAM")
+$UBtnOtimizar       = $Window.FindName("UBtnOtimizar")
+$UBtnTeamsOffice    = $Window.FindName("UBtnTeamsOffice")
+$UBtnSpooler        = $Window.FindName("UBtnSpooler")
+$UBtnFlushDns       = $Window.FindName("UBtnFlushDns")
+$UBtnRenovarIP      = $Window.FindName("UBtnRenovarIP")
+$UBtnSincHora       = $Window.FindName("UBtnSincHora")
+$UTxtPingHost       = $Window.FindName("UTxtPingHost")
+$UBtnPing           = $Window.FindName("UBtnPing")
+$UBtnTracert        = $Window.FindName("UBtnTracert")
+$UBtnTestarConect   = $Window.FindName("UBtnTestarConect")
 $HdrPC              = $Window.FindName("HdrPC")
 $HdrUptime          = $Window.FindName("HdrUptime")
 $BtnRelatorio       = $Window.FindName("BtnRelatorio")
@@ -2446,6 +2645,22 @@ try {
     $HdrPC.Text     = $env:COMPUTERNAME
     $HdrUptime.Text = "$($up.Days)d $($up.Hours)h $($up.Minutes)m"
 
+    # Painel usuario
+    try {
+        $USiPC.Text     = $env:COMPUTERNAME
+        $USiOS.Text     = "$($os.Caption -replace 'Microsoft ','')  (Build $($os.BuildNumber))"
+        $USiUser.Text   = "$env:USERNAME  @  $($cs.Domain)"
+        $USiUptime.Text = "$($up.Days)d $($up.Hours)h $($up.Minutes)m"
+        $ramT2 = [math]::Round($cs.TotalPhysicalMemory/1GB,1)
+        $ramF2 = [math]::Round($os.FreePhysicalMemory/1MB,1)
+        $USiRAM.Text    = "Total: ${ramT2} GB   |   Livre: ${ramF2} GB"
+        $USiDomain.Text = if ($cs.PartOfDomain) { "Dominio: $($cs.Domain)" } else { "Workgroup: $($cs.Domain)" }
+        $nic2 = Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled=TRUE" | Select-Object -First 1
+        $USiIP.Text  = if ($nic2.IPAddress)            { $nic2.IPAddress[0] }                     else { "N/A" }
+        $USiGW.Text  = if ($nic2.DefaultIPGateway)     { $nic2.DefaultIPGateway[0] }              else { "N/A" }
+        $USiDNS.Text = if ($nic2.DNSServerSearchOrder) { $nic2.DNSServerSearchOrder -join " | " } else { "N/A" }
+    } catch {}
+
     # Rede rapida
     try {
         $nic = Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled=TRUE" | Select-Object -First 1
@@ -2509,6 +2724,63 @@ try {
 # ================================================================
 # EVENT HANDLERS
 # ================================================================
+
+# ================================================================
+# MODO ADM / USUARIO
+# ================================================================
+Initialize-Senha
+
+function Enter-ModoAdm {
+    $senha = Show-DialogSenha
+    if ($null -eq $senha) { return }
+    if (Test-SenhaAdm $senha) {
+        $script:MODE = "ADMIN"
+        $UserPanel.Visibility  = "Collapsed"
+        $AdminPanel.Visibility = "Visible"
+        $TxtModo.Text          = "ADM"
+        $TxtModo.Foreground    = [System.Windows.Media.BrushConverter]::new().ConvertFrom("#98C379")
+        $BtnModoAdm.Content    = "Sair ADM"
+        $BtnModoAdm.Background = [System.Windows.Media.BrushConverter]::new().ConvertFrom("#4B5263")
+        $BtnModoAdm.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFrom("#ABB2BF")
+        Write-Log "Modo ADM ativado." "OK"
+    } else {
+        [System.Windows.MessageBox]::Show("Senha incorreta.", "Acesso negado", "OK", "Warning") | Out-Null
+        Write-Log "Tentativa de acesso ADM com senha incorreta." "AVISO"
+    }
+}
+
+function Exit-ModoAdm {
+    $script:MODE = "USER"
+    $AdminPanel.Visibility = "Collapsed"
+    $UserPanel.Visibility  = "Visible"
+    $TxtModo.Text          = "USUARIO"
+    $TxtModo.Foreground    = [System.Windows.Media.BrushConverter]::new().ConvertFrom("#E5C07B")
+    $BtnModoAdm.Content    = "Entrar ADM"
+    $BtnModoAdm.Background = [System.Windows.Media.BrushConverter]::new().ConvertFrom("#E5C07B")
+    $BtnModoAdm.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFrom("#1E2128")
+    Write-Log "Saiu do modo ADM." "INFO"
+}
+
+$BtnModoAdm.Add_Click({
+    if ($script:MODE -eq "ADMIN") { Exit-ModoAdm } else { Enter-ModoAdm }
+})
+
+# --- Painel Usuario ---
+$UBtnOtimizar.Add_Click({    Invoke-Async { Invoke-OtimizarPC } })
+$UBtnTeamsOffice.Add_Click({ Invoke-Async { Invoke-LimparCacheTeamsOffice } })
+$UBtnSpooler.Add_Click({     Invoke-Async { Invoke-LimparSpooler } })
+$UBtnFlushDns.Add_Click({    Invoke-Async { ipconfig /flushdns | Out-Null; Write-Log "Cache DNS limpo." "OK" } })
+$UBtnRenovarIP.Add_Click({   Invoke-Async { Invoke-RenovarIP } })
+$UBtnSincHora.Add_Click({    Invoke-Async { Invoke-SincronizarHora } })
+$UBtnPing.Add_Click({
+    $h = $UTxtPingHost.Text.Trim(); if (-not $h) { $h = "8.8.8.8" }
+    Invoke-Async { Invoke-PingVisual -Destino $H } -Vars @{ H = $h }
+})
+$UBtnTracert.Add_Click({
+    $h = $UTxtPingHost.Text.Trim(); if (-not $h) { $h = "8.8.8.8" }
+    Invoke-Async { Invoke-TracertVisual -Destino $H } -Vars @{ H = $h }
+})
+$UBtnTestarConect.Add_Click({ Invoke-Async { Invoke-TestarConectividade } })
 
 # --- Sistema ---
 $BtnDiagnostico.Add_Click({       Invoke-Async { Invoke-Diagnostico } })
