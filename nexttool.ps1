@@ -1831,15 +1831,13 @@ function Invoke-Async {
                         </Border>
                         <TextBlock Text="Historico de todas as sessoes" Foreground="#ABB2BF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
                       </StackPanel>
-                      <TextBlock TextWrapping="Wrap" Foreground="#E5C07B" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,4"
-                                 Text="1. Execute o Diagnostico Completo acima primeiro."/>
                       <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11" Margin="0,0,0,4"
-                                 Text="2. Clique em 'Relatorios' no canto superior direito. A pasta sera aberta:"/>
+                                 Text="Clique em 'Relatorios' no canto superior direito. A pasta com todos os logs sera aberta:"/>
                       <Border Background="#21252B" CornerRadius="3" Padding="8,5" Margin="0,4,0,6">
                         <TextBlock Foreground="#98C379" FontSize="11" FontFamily="Consolas" Text="C:\Next-Relatorios\"/>
                       </Border>
                       <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
-                                 Text="3. Envie o arquivo mais recente (nome do PC + data/hora) ao suporte."/>
+                                 Text="Cada arquivo tem o nome do PC e a data/hora. Envie o mais recente ao suporte."/>
                     </StackPanel>
                   </Border>
 
