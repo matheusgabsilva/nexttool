@@ -1762,31 +1762,70 @@ function Invoke-Async {
                     <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
                   <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                    <TextBlock Text="COMPUTADOR"        Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
-                    <TextBlock x:Name="USiPC"           Foreground="#ABB2BF" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    <TextBlock Text="SISTEMA"           Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
-                    <TextBlock x:Name="USiOS"           Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                    <TextBlock Text="USUARIO"           Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
-                    <TextBlock x:Name="USiUser"         Foreground="#ABB2BF" FontSize="11"/>
+                    <TextBlock Text="COMPUTADOR"  Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiPC"     Foreground="#ABB2BF" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <TextBlock Text="SISTEMA"     Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiOS"     Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                    <TextBlock Text="USUARIO"     Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiUser"   Foreground="#ABB2BF" FontSize="11"/>
                   </StackPanel>
                   <StackPanel Grid.Column="1" Margin="0,0,12,0">
-                    <TextBlock Text="ENDERECO IP"       Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
-                    <TextBlock x:Name="USiIP"           Foreground="#ABB2BF" FontSize="11" Margin="0,0,0,8"/>
-                    <TextBlock Text="GATEWAY"           Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
-                    <TextBlock x:Name="USiGW"           Foreground="#ABB2BF" FontSize="11" Margin="0,0,0,8"/>
-                    <TextBlock Text="DNS"               Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
-                    <TextBlock x:Name="USiDNS"          Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap"/>
+                    <TextBlock Text="ENDERECO IP" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiIP"     Foreground="#ABB2BF" FontSize="11" Margin="0,0,0,8"/>
+                    <TextBlock Text="GATEWAY"     Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiGW"     Foreground="#ABB2BF" FontSize="11" Margin="0,0,0,8"/>
+                    <TextBlock Text="DNS"         Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiDNS"    Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap"/>
                   </StackPanel>
                   <StackPanel Grid.Column="2">
-                    <TextBlock Text="DOMINIO"           Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
-                    <TextBlock x:Name="USiDomain"       Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                    <TextBlock Text="UPTIME"            Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
-                    <TextBlock x:Name="USiUptime"       Foreground="#ABB2BF" FontSize="11" Margin="0,0,0,8"/>
-                    <TextBlock Text="MEMORIA RAM"       Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
-                    <TextBlock x:Name="USiRAM"          Foreground="#ABB2BF" FontSize="11"/>
+                    <TextBlock Text="DOMINIO"     Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiDomain" Foreground="#ABB2BF" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                    <TextBlock Text="UPTIME"      Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiUptime" Foreground="#ABB2BF" FontSize="11" Margin="0,0,0,8"/>
+                    <TextBlock Text="MEMORIA RAM" Foreground="#5C6370" FontSize="9" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="USiRAM"    Foreground="#ABB2BF" FontSize="11"/>
                   </StackPanel>
                 </Grid>
               </GroupBox>
+
+              <!-- Ajuda: Relatorio -->
+              <GroupBox Header="Como enviar informacoes para o suporte">
+                <StackPanel Margin="4,4">
+                  <Border Background="#1E2128" CornerRadius="5" Padding="12,10" Margin="0,0,0,6">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                      </Grid.ColumnDefinitions>
+                      <Border Grid.Column="0" Background="#61AFEF" CornerRadius="3" Padding="8,3" Margin="0,0,12,0" VerticalAlignment="Top">
+                        <TextBlock Text="LOG DE SAIDA" Foreground="#1E2128" FontWeight="Bold" FontSize="10"/>
+                      </Border>
+                      <StackPanel Grid.Column="1">
+                        <TextBlock Foreground="#ABB2BF" FontSize="12" FontWeight="SemiBold" Text="Exportar o log da sessao atual" Margin="0,0,0,3"/>
+                        <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
+                                   Text="Clique em 'Exportar' no rodape da tela. Um arquivo .txt sera salvo em C:\Next-Relatorios\ com tudo que apareceu no log. Encaminhe esse arquivo para o suporte por e-mail ou WhatsApp."/>
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                  <Border Background="#1E2128" CornerRadius="5" Padding="12,10">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                      </Grid.ColumnDefinitions>
+                      <Border Grid.Column="0" Background="#C678DD" CornerRadius="3" Padding="8,3" Margin="0,0,12,0" VerticalAlignment="Top">
+                        <TextBlock Text="RELATORIO" Foreground="#1E2128" FontWeight="Bold" FontSize="10"/>
+                      </Border>
+                      <StackPanel Grid.Column="1">
+                        <TextBlock Foreground="#ABB2BF" FontSize="12" FontWeight="SemiBold" Text="Gerar relatorio HTML completo" Margin="0,0,0,3"/>
+                        <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
+                                   Text="No modo ADM, aba Sistema, clique em 'Exportar Relatorio HTML'. O relatorio abre automaticamente no navegador com hardware, rede, seguranca e armazenamento. Salve a pagina (Ctrl+S) ou tire um print para enviar ao suporte."/>
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                </StackPanel>
+              </GroupBox>
+
             </StackPanel>
           </ScrollViewer>
         </TabItem>
@@ -1797,18 +1836,76 @@ function Invoke-Async {
             <StackPanel Margin="20,16">
               <GroupBox Header="Limpeza Rapida">
                 <WrapPanel Margin="4,4">
-                  <Button x:Name="UBtnOtimizar"      Content="Limpar Temporarios"    Width="185" Height="64" Margin="0,0,10,10"/>
-                  <Button x:Name="UBtnTeamsOffice"   Width="185" Height="64" Margin="0,0,10,10">
+                  <Button x:Name="UBtnOtimizar"    Content="Limpar Temporarios"    Width="185" Height="64" Margin="0,0,10,10"/>
+                  <Button x:Name="UBtnTeamsOffice" Width="185" Height="64" Margin="0,0,10,10">
                     <TextBlock Text="Limpar Cache Teams/Office" TextWrapping="Wrap" TextAlignment="Center"/>
                   </Button>
-                  <Button x:Name="UBtnSpooler"       Width="185" Height="64" Margin="0,0,10,10">
+                  <Button x:Name="UBtnSpooler"     Width="185" Height="64" Margin="0,0,10,10">
                     <TextBlock Text="Limpar Fila de Impressao" TextWrapping="Wrap" TextAlignment="Center"/>
                   </Button>
-                  <Button x:Name="UBtnFlushDns"      Content="Flush DNS"             Width="185" Height="64" Margin="0,0,10,10"/>
-                  <Button x:Name="UBtnRenovarIP"     Content="Renovar IP (DHCP)"     Width="185" Height="64" Margin="0,0,10,10"/>
-                  <Button x:Name="UBtnSincHora"      Content="Sincronizar Hora"      Width="185" Height="64" Margin="0,0,10,10"/>
+                  <Button x:Name="UBtnFlushDns"    Content="Flush DNS"             Width="185" Height="64" Margin="0,0,10,10"/>
+                  <Button x:Name="UBtnRenovarIP"   Content="Renovar IP (DHCP)"     Width="185" Height="64" Margin="0,0,10,10"/>
+                  <Button x:Name="UBtnSincHora"    Content="Sincronizar Hora"      Width="185" Height="64" Margin="0,0,10,10"/>
                 </WrapPanel>
               </GroupBox>
+
+              <!-- Ajuda: Limpeza -->
+              <GroupBox Header="O que faz cada funcao">
+                <Grid Margin="4,4">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <StackPanel Grid.Column="0">
+                    <Border Background="#1E2128" CornerRadius="5" Padding="12,8" Margin="0,0,0,6">
+                      <StackPanel>
+                        <TextBlock Foreground="#61AFEF" FontWeight="SemiBold" FontSize="12" Text="Limpar Temporarios" Margin="0,0,0,3"/>
+                        <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
+                                   Text="Remove arquivos temporarios do Windows e esvazia a lixeira. Use quando o PC estiver lento ou com pouco espaco em disco."/>
+                      </StackPanel>
+                    </Border>
+                    <Border Background="#1E2128" CornerRadius="5" Padding="12,8" Margin="0,0,0,6">
+                      <StackPanel>
+                        <TextBlock Foreground="#61AFEF" FontWeight="SemiBold" FontSize="12" Text="Limpar Cache Teams/Office" Margin="0,0,0,3"/>
+                        <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
+                                   Text="Apaga arquivos temporarios do Teams e Office que acumulam GB ao longo do tempo. Resolve lentidao, travamentos e erros de sincronizacao. Reinicie os apps apos."/>
+                      </StackPanel>
+                    </Border>
+                    <Border Background="#1E2128" CornerRadius="5" Padding="12,8">
+                      <StackPanel>
+                        <TextBlock Foreground="#61AFEF" FontWeight="SemiBold" FontSize="12" Text="Limpar Fila de Impressao" Margin="0,0,0,3"/>
+                        <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
+                                   Text="Cancela todos os documentos presos na fila da impressora e reinicia o servico. Use quando a impressora parou de imprimir sem motivo aparente."/>
+                      </StackPanel>
+                    </Border>
+                  </StackPanel>
+                  <StackPanel Grid.Column="2">
+                    <Border Background="#1E2128" CornerRadius="5" Padding="12,8" Margin="0,0,0,6">
+                      <StackPanel>
+                        <TextBlock Foreground="#61AFEF" FontWeight="SemiBold" FontSize="12" Text="Flush DNS" Margin="0,0,0,3"/>
+                        <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
+                                   Text="Limpa o cache de enderecos de sites guardados pelo Windows. Use quando um site nao abre ou abre com erro, mesmo estando com internet."/>
+                      </StackPanel>
+                    </Border>
+                    <Border Background="#1E2128" CornerRadius="5" Padding="12,8" Margin="0,0,0,6">
+                      <StackPanel>
+                        <TextBlock Foreground="#61AFEF" FontWeight="SemiBold" FontSize="12" Text="Renovar IP (DHCP)" Margin="0,0,0,3"/>
+                        <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
+                                   Text="Libera o endereco IP atual e solicita um novo ao roteador. Use quando o PC esta com 'Rede sem internet' ou com IP de conflito (169.254.x.x)."/>
+                      </StackPanel>
+                    </Border>
+                    <Border Background="#1E2128" CornerRadius="5" Padding="12,8">
+                      <StackPanel>
+                        <TextBlock Foreground="#61AFEF" FontWeight="SemiBold" FontSize="12" Text="Sincronizar Hora" Margin="0,0,0,3"/>
+                        <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
+                                   Text="Sincroniza o relogio do PC com o servidor de hora da Microsoft. Use quando aparecem erros de certificado, login no Teams ou problemas de autenticacao."/>
+                      </StackPanel>
+                    </Border>
+                  </StackPanel>
+                </Grid>
+              </GroupBox>
+
             </StackPanel>
           </ScrollViewer>
         </TabItem>
@@ -1832,111 +1929,87 @@ function Invoke-Async {
                 </StackPanel>
               </GroupBox>
 
-              <!-- Guia de ferramentas -->
-              <GroupBox Header="Como usar cada ferramenta">
-                <StackPanel Margin="4,4">
+              <!-- Guia compacto -->
+              <GroupBox Header="Como interpretar os resultados">
+                <Grid Margin="4,4">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
 
                   <!-- Ping -->
-                  <Border Background="#1E2128" CornerRadius="6" Padding="14,10" Margin="0,0,0,8">
+                  <Border Grid.Column="0" Background="#1E2128" CornerRadius="5" Padding="12,10">
                     <StackPanel>
                       <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                        <Border Background="#61AFEF" CornerRadius="3" Padding="8,2" Margin="0,0,10,0">
-                          <TextBlock Text="PING" Foreground="#1E2128" FontWeight="Bold" FontSize="11"/>
+                        <Border Background="#61AFEF" CornerRadius="3" Padding="7,2" Margin="0,0,8,0">
+                          <TextBlock Text="PING" Foreground="#1E2128" FontWeight="Bold" FontSize="10"/>
                         </Border>
-                        <TextBlock Text="Verifica se um endereco esta acessivel" Foreground="#ABB2BF" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Text="Testa alcance e latencia" Foreground="#ABB2BF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
                       </StackPanel>
-                      <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="12" Margin="0,0,0,6"
-                                 Text="Envia 4 pacotes para o destino e mede o tempo de resposta (latencia) em milissegundos."/>
-                      <Border Background="#21252B" CornerRadius="4" Padding="10,8">
-                        <StackPanel>
-                          <TextBlock Foreground="#98C379" FontSize="11" FontWeight="SemiBold" Text="Como interpretar:" Margin="0,0,0,4"/>
-                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
-                            <Run Foreground="#98C379" Text="Latencia abaixo de 50ms "/>
-                            <Run Foreground="#ABB2BF" Text="— conexao excelente, ideal para trabalho remoto e videoconferencia."/>
-                          </TextBlock>
-                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
-                            <Run Foreground="#E5C07B" Text="Latencia entre 50ms e 150ms "/>
-                            <Run Foreground="#ABB2BF" Text="— conexao aceitavel, pode haver lentidao em chamadas de video."/>
-                          </TextBlock>
-                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
-                            <Run Foreground="#E06C75" Text="Latencia acima de 150ms ou pacotes perdidos "/>
-                            <Run Foreground="#ABB2BF" Text="— problema de rede. Contate o suporte."/>
-                          </TextBlock>
-                          <TextBlock TextWrapping="Wrap" FontSize="11">
-                            <Run Foreground="#E06C75" Text="Sem resposta (timeout) "/>
-                            <Run Foreground="#ABB2BF" Text="— destino inacessivel ou sem internet. Tente pingar 8.8.8.8 (Google DNS) para confirmar."/>
-                          </TextBlock>
-                        </StackPanel>
-                      </Border>
+                      <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,6">
+                        <Run Foreground="#98C379" Text="Abaixo de 50ms"/><Run Foreground="#5C6370" Text=" — otimo"/>
+                      </TextBlock>
+                      <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,6">
+                        <Run Foreground="#E5C07B" Text="50ms a 150ms"/><Run Foreground="#5C6370" Text=" — aceitavel, video pode travar"/>
+                      </TextBlock>
+                      <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,6">
+                        <Run Foreground="#E06C75" Text="Acima de 150ms"/><Run Foreground="#5C6370" Text=" — ruim, contate suporte"/>
+                      </TextBlock>
+                      <TextBlock TextWrapping="Wrap" FontSize="11">
+                        <Run Foreground="#E06C75" Text="Sem resposta"/><Run Foreground="#5C6370" Text=" — sem internet, teste 8.8.8.8"/>
+                      </TextBlock>
                     </StackPanel>
                   </Border>
 
                   <!-- Tracert -->
-                  <Border Background="#1E2128" CornerRadius="6" Padding="14,10" Margin="0,0,0,8">
+                  <Border Grid.Column="2" Background="#1E2128" CornerRadius="5" Padding="12,10">
                     <StackPanel>
                       <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                        <Border Background="#4B5263" CornerRadius="3" Padding="8,2" Margin="0,0,10,0">
-                          <TextBlock Text="TRACERT" Foreground="#ABB2BF" FontWeight="Bold" FontSize="11"/>
+                        <Border Background="#4B5263" CornerRadius="3" Padding="7,2" Margin="0,0,8,0">
+                          <TextBlock Text="TRACERT" Foreground="#ABB2BF" FontWeight="Bold" FontSize="10"/>
                         </Border>
-                        <TextBlock Text="Mapeia o caminho ate o destino" Foreground="#ABB2BF" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Text="Mapeia rota ate o destino" Foreground="#ABB2BF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
                       </StackPanel>
-                      <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="12" Margin="0,0,0,6"
-                                 Text="Mostra cada roteador (salto) pelo qual o pacote passa ate chegar ao destino. Util para identificar onde a conexao esta lenta ou bloqueada."/>
-                      <Border Background="#21252B" CornerRadius="4" Padding="10,8">
-                        <StackPanel>
-                          <TextBlock Foreground="#98C379" FontSize="11" FontWeight="SemiBold" Text="Como interpretar:" Margin="0,0,0,4"/>
-                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
-                            <Run Foreground="#ABB2BF" Text="Cada linha representa um salto (roteador). O numero a esquerda indica a ordem."/>
-                          </TextBlock>
-                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
-                            <Run Foreground="#E5C07B" Text="Salto com * * * "/>
-                            <Run Foreground="#ABB2BF" Text="— roteador nao responde ao tracert (normal em alguns provedores), mas o trafego ainda passa."/>
-                          </TextBlock>
-                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
-                            <Run Foreground="#E06C75" Text="Latencia que aumenta muito em um salto especifico "/>
-                            <Run Foreground="#ABB2BF" Text="— indica gargalo ou problema naquele ponto da rede."/>
-                          </TextBlock>
-                          <TextBlock TextWrapping="Wrap" FontSize="11">
-                            <Run Foreground="#E06C75" Text="Tracert para no meio do caminho "/>
-                            <Run Foreground="#ABB2BF" Text="— conexao bloqueada por firewall ou roteador com problema."/>
-                          </TextBlock>
-                        </StackPanel>
-                      </Border>
+                      <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,6">
+                        <Run Foreground="#ABB2BF" Text="Cada linha = 1 roteador no caminho"/>
+                      </TextBlock>
+                      <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,6">
+                        <Run Foreground="#E5C07B" Text="* * *"/><Run Foreground="#5C6370" Text=" — roteador nao responde (normal), trafego passa"/>
+                      </TextBlock>
+                      <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,6">
+                        <Run Foreground="#E06C75" Text="Latencia alta num salto"/><Run Foreground="#5C6370" Text=" — gargalo naquele ponto"/>
+                      </TextBlock>
+                      <TextBlock TextWrapping="Wrap" FontSize="11">
+                        <Run Foreground="#E06C75" Text="Para no meio"/><Run Foreground="#5C6370" Text=" — bloqueado por firewall"/>
+                      </TextBlock>
                     </StackPanel>
                   </Border>
 
                   <!-- Testar Conexao -->
-                  <Border Background="#1E2128" CornerRadius="6" Padding="14,10">
+                  <Border Grid.Column="4" Background="#1E2128" CornerRadius="5" Padding="12,10">
                     <StackPanel>
                       <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                        <Border Background="#61AFEF" CornerRadius="3" Padding="8,2" Margin="0,0,10,0">
-                          <TextBlock Text="TESTAR CONEXAO" Foreground="#1E2128" FontWeight="Bold" FontSize="11"/>
+                        <Border Background="#61AFEF" CornerRadius="3" Padding="7,2" Margin="0,0,8,0">
+                          <TextBlock Text="TESTAR" Foreground="#1E2128" FontWeight="Bold" FontSize="10"/>
                         </Border>
-                        <TextBlock Text="Testa internet e DNS simultaneamente" Foreground="#ABB2BF" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Text="Internet + DNS juntos" Foreground="#ABB2BF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
                       </StackPanel>
-                      <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="12" Margin="0,0,0,6"
-                                 Text="Pinga 8.8.8.8 (Google), 1.1.1.1 (Cloudflare) e google.com. Permite distinguir entre falha de internet e falha de DNS."/>
-                      <Border Background="#21252B" CornerRadius="4" Padding="10,8">
-                        <StackPanel>
-                          <TextBlock Foreground="#98C379" FontSize="11" FontWeight="SemiBold" Text="Diagnostico rapido:" Margin="0,0,0,4"/>
-                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
-                            <Run Foreground="#E06C75" Text="8.8.8.8 falha, google.com falha "/>
-                            <Run Foreground="#ABB2BF" Text="— sem internet. Verifique o cabo, Wi-Fi ou contate o provedor."/>
-                          </TextBlock>
-                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
-                            <Run Foreground="#E5C07B" Text="8.8.8.8 ok, google.com falha "/>
-                            <Run Foreground="#ABB2BF" Text="— internet ok, mas DNS com problema. Use 'Flush DNS' ou 'Renovar IP' na aba Limpeza."/>
-                          </TextBlock>
-                          <TextBlock TextWrapping="Wrap" FontSize="11">
-                            <Run Foreground="#98C379" Text="Tudo ok "/>
-                            <Run Foreground="#ABB2BF" Text="— conexao funcionando normalmente."/>
-                          </TextBlock>
-                        </StackPanel>
-                      </Border>
+                      <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,6">
+                        <Run Foreground="#E06C75" Text="8.8.8.8 falha"/><Run Foreground="#5C6370" Text=" — sem internet, verifique cabo/Wi-Fi"/>
+                      </TextBlock>
+                      <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,6">
+                        <Run Foreground="#E5C07B" Text="8.8.8.8 ok, site falha"/><Run Foreground="#5C6370" Text=" — DNS com problema, use Flush DNS"/>
+                      </TextBlock>
+                      <TextBlock TextWrapping="Wrap" FontSize="11">
+                        <Run Foreground="#98C379" Text="Tudo ok"/><Run Foreground="#5C6370" Text=" — conexao normal"/>
+                      </TextBlock>
                     </StackPanel>
                   </Border>
 
-                </StackPanel>
+                </Grid>
               </GroupBox>
 
             </StackPanel>
