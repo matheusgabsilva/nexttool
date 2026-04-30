@@ -2150,7 +2150,7 @@ function Invoke-Async {
               <ColumnDefinition Width="12"/>
               <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <GroupBox Grid.Column="0" Header="Subpastas  (por tamanho)">
+            <GroupBox Grid.Column="0" Header="Subpastas  (por tamanho)  — duplo clique para abrir">
               <ListView x:Name="LvFolders">
                 <ListView.View>
                   <GridView>
@@ -2161,7 +2161,7 @@ function Invoke-Async {
                 </ListView.View>
               </ListView>
             </GroupBox>
-            <GroupBox Grid.Column="2" Header="Maiores arquivos">
+            <GroupBox Grid.Column="2" Header="Maiores arquivos  — duplo clique para abrir pasta">
               <ListView x:Name="LvFiles">
                 <ListView.View>
                   <GridView>
@@ -2197,14 +2197,14 @@ function Invoke-Async {
                        FontWeight="Bold" VerticalAlignment="Center"/>
           </StackPanel>
           <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-            <Button x:Name="BtnLimparLog" Content="limpar"
-                    Padding="8,2" Margin="0,0,4,0"
-                    Background="Transparent" Foreground="#5C6370"
-                    FontSize="10" FontWeight="Normal"/>
-            <Button x:Name="BtnExportLog" Content="exportar"
-                    Padding="8,2"
-                    Background="Transparent" Foreground="#5C6370"
-                    FontSize="10" FontWeight="Normal"/>
+            <Button x:Name="BtnLimparLog" Content="Limpar"
+                    Padding="10,3" Margin="0,0,6,0"
+                    Background="#3E4451" Foreground="#ABB2BF"
+                    FontSize="11" FontWeight="Normal"/>
+            <Button x:Name="BtnExportLog" Content="Exportar"
+                    Padding="10,3"
+                    Background="#61AFEF" Foreground="#1E2128"
+                    FontSize="11" FontWeight="SemiBold"/>
           </StackPanel>
         </Grid>
       </Border>
@@ -2515,11 +2515,11 @@ $BtnDiagnostico.Add_Click({       Invoke-Async { Invoke-Diagnostico } })
 $BtnAtualizarDrivers.Add_Click({  Invoke-Async { Invoke-TweakDrivers } })
 $BtnExportarRelatorio.Add_Click({
     $dir = $script:REPORT_DIR
-    Invoke-Async { Export-RelatorioHTML -ReportDir $V.Dir } -Vars @{ Dir = $dir }
+    Invoke-Async { Export-RelatorioHTML -ReportDir $Dir } -Vars @{ Dir = $dir }
 })
 $BtnHistoricoLogs.Add_Click({
     $dir = $script:REPORT_DIR
-    Invoke-Async { Invoke-HistoricoLogs -ReportDir $V.Dir } -Vars @{ Dir = $dir }
+    Invoke-Async { Invoke-HistoricoLogs -ReportDir $Dir } -Vars @{ Dir = $dir }
 })
 $BtnRelatorio.Add_Click({        Start-Process explorer.exe $script:REPORT_DIR })
 
@@ -2545,11 +2545,11 @@ $BtnServicos.Add_Click({          Invoke-Async { Show-ServiciosCriticos } })
 $BtnPerfilCorrompido.Add_Click({  Invoke-Async { Invoke-LimparPerfilCorrompido } })
 $BtnReiniciarServico.Add_Click({
     $svc = $TxtServico.Text.Trim()
-    Invoke-Async { Invoke-ReiniciarServico -NomeServico $V.Svc } -Vars @{ Svc = $svc }
+    Invoke-Async { Invoke-ReiniciarServico -NomeServico $Svc } -Vars @{ Svc = $svc }
 })
 $BtnDesinstalarApp.Add_Click({
     $app = $TxtDesinstalarApp.Text.Trim()
-    Invoke-Async { Invoke-DesinstalarApp -NomeApp $V.App } -Vars @{ App = $app }
+    Invoke-Async { Invoke-DesinstalarApp -NomeApp $App } -Vars @{ App = $app }
 })
 
 # --- Tweaks ---
@@ -2621,15 +2621,15 @@ $BtnVerificarDominio.Add_Click({ Invoke-Async { Invoke-VerificarDominio } })
 $BtnIPInfo.Add_Click({           Invoke-Async { Show-IPInfo } })
 $BtnPing.Add_Click({
     $h = $TxtPingHost.Text.Trim(); if (-not $h) { $h = "8.8.8.8" }
-    Invoke-Async { Invoke-PingVisual -Destino $V.H } -Vars @{ H = $h }
+    Invoke-Async { Invoke-PingVisual -Destino $H } -Vars @{ H = $h }
 })
 $BtnPingContinuo.Add_Click({
     $h = $TxtPingHost.Text.Trim(); if (-not $h) { $h = "8.8.8.8" }
-    Invoke-Async { Invoke-PingContinuo -Destino $V.H } -Vars @{ H = $h }
+    Invoke-Async { Invoke-PingContinuo -Destino $H } -Vars @{ H = $h }
 })
 $BtnTracert.Add_Click({
     $h = $TxtPingHost.Text.Trim(); if (-not $h) { $h = "8.8.8.8" }
-    Invoke-Async { Invoke-TracertVisual -Destino $V.H } -Vars @{ H = $h }
+    Invoke-Async { Invoke-TracertVisual -Destino $H } -Vars @{ H = $h }
 })
 $BtnTestarConect.Add_Click({   Invoke-Async { Invoke-TestarConectividade } })
 $BtnIPConfig.Add_Click({       Invoke-Async { Show-IPConfig } })
@@ -2677,7 +2677,7 @@ $BtnAddToAdmins.Add_Click({
 })
 $BtnDesbloquearUser.Add_Click({
     $u = if ($LvUsers.SelectedItem) { $LvUsers.SelectedItem.Nome } else { "" }
-    Invoke-Async { Invoke-DesbloquearUsuario -NomeUsuario $V.U } -Vars @{ U = $u }
+    Invoke-Async { Invoke-DesbloquearUsuario -NomeUsuario $U } -Vars @{ U = $u }
 })
 $BtnRemoveUser.Add_Click({
     $sel = $LvUsers.SelectedItem
@@ -2790,6 +2790,21 @@ $BtnAnalisarPasta.Add_Click({
     if (-not (Test-Path $path)) { Write-Log "Pasta nao encontrada: $path" "ERRO"; return }
     $LvFolders.Items.Clear(); $LvFiles.Items.Clear()
     Invoke-Async { Invoke-AnalisarPasta -Path $P -MinMB $M } -Vars @{P=$path;M=$minMB}
+})
+
+# --- Armazenamento: duplo clique para abrir ---
+$LvFolders.Add_MouseDoubleClick({
+    $sel = $LvFolders.SelectedItem
+    if ($sel -and $sel.Caminho -and (Test-Path $sel.Caminho)) {
+        Start-Process explorer.exe $sel.Caminho
+    }
+})
+$LvFiles.Add_MouseDoubleClick({
+    $sel = $LvFiles.SelectedItem
+    if ($sel -and $sel.Caminho) {
+        $pasta = Split-Path $sel.Caminho -Parent
+        if (Test-Path $pasta) { Start-Process explorer.exe $pasta }
+    }
 })
 
 # --- Log ---
