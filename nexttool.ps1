@@ -1790,40 +1790,50 @@ function Invoke-Async {
 
               <!-- Ajuda: Relatorio -->
               <GroupBox Header="Como enviar informacoes para o suporte">
-                <StackPanel Margin="4,4">
-                  <Border Background="#1E2128" CornerRadius="5" Padding="12,10" Margin="0,0,0,6">
-                    <Grid>
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                      </Grid.ColumnDefinitions>
-                      <Border Grid.Column="0" Background="#61AFEF" CornerRadius="3" Padding="8,3" Margin="0,0,12,0" VerticalAlignment="Top">
-                        <TextBlock Text="LOG DE SAIDA" Foreground="#1E2128" FontWeight="Bold" FontSize="10"/>
-                      </Border>
-                      <StackPanel Grid.Column="1">
-                        <TextBlock Foreground="#ABB2BF" FontSize="12" FontWeight="SemiBold" Text="Exportar o log da sessao atual" Margin="0,0,0,3"/>
-                        <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
-                                   Text="Clique em 'Exportar' no rodape da tela. Um arquivo .txt sera salvo em C:\Next-Relatorios\ com tudo que apareceu no log. Encaminhe esse arquivo para o suporte por e-mail ou WhatsApp."/>
+                <Grid Margin="4,4">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+
+                  <Border Grid.Column="0" Background="#1E2128" CornerRadius="5" Padding="12,10">
+                    <StackPanel>
+                      <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <Border Background="#61AFEF" CornerRadius="3" Padding="7,2" Margin="0,0,8,0">
+                          <TextBlock Text="EXPORTAR" Foreground="#1E2128" FontWeight="Bold" FontSize="10"/>
+                        </Border>
+                        <TextBlock Text="Log da sessao atual" Foreground="#ABB2BF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
                       </StackPanel>
-                    </Grid>
-                  </Border>
-                  <Border Background="#1E2128" CornerRadius="5" Padding="12,10">
-                    <Grid>
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                      </Grid.ColumnDefinitions>
-                      <Border Grid.Column="0" Background="#C678DD" CornerRadius="3" Padding="8,3" Margin="0,0,12,0" VerticalAlignment="Top">
-                        <TextBlock Text="RELATORIO" Foreground="#1E2128" FontWeight="Bold" FontSize="10"/>
+                      <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
+                                 Text="Clique em 'Exportar' no rodape da tela (canto inferior direito). Um arquivo .txt sera salvo automaticamente em:"/>
+                      <Border Background="#21252B" CornerRadius="3" Padding="8,5" Margin="0,6,0,6">
+                        <TextBlock Foreground="#98C379" FontSize="11" FontFamily="Consolas" Text="C:\Next-Relatorios\"/>
                       </Border>
-                      <StackPanel Grid.Column="1">
-                        <TextBlock Foreground="#ABB2BF" FontSize="12" FontWeight="SemiBold" Text="Gerar relatorio HTML completo" Margin="0,0,0,3"/>
-                        <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
-                                   Text="No modo ADM, aba Sistema, clique em 'Exportar Relatorio HTML'. O relatorio abre automaticamente no navegador com hardware, rede, seguranca e armazenamento. Salve a pagina (Ctrl+S) ou tire um print para enviar ao suporte."/>
-                      </StackPanel>
-                    </Grid>
+                      <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
+                                 Text="Encaminhe esse arquivo .txt para o suporte por e-mail ou WhatsApp. Ele contem todo o historico de acoes realizadas na sessao."/>
+                    </StackPanel>
                   </Border>
-                </StackPanel>
+
+                  <Border Grid.Column="2" Background="#1E2128" CornerRadius="5" Padding="12,10">
+                    <StackPanel>
+                      <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <Border Background="#2D3139" CornerRadius="3" Padding="7,2" Margin="0,0,8,0">
+                          <TextBlock Text="RELATORIOS" Foreground="#ABB2BF" FontWeight="Bold" FontSize="10"/>
+                        </Border>
+                        <TextBlock Text="Historico de todas as sessoes" Foreground="#ABB2BF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                      </StackPanel>
+                      <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
+                                 Text="Clique em 'Relatorios' no canto superior direito da tela. A pasta com todos os logs salvos sera aberta no Explorer."/>
+                      <Border Background="#21252B" CornerRadius="3" Padding="8,5" Margin="0,6,0,6">
+                        <TextBlock Foreground="#98C379" FontSize="11" FontFamily="Consolas" Text="C:\Next-Relatorios\"/>
+                      </Border>
+                      <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="11"
+                                 Text="Cada arquivo tem o nome do PC e a data/hora. Envie o arquivo mais recente ao suporte para analise do historico completo."/>
+                    </StackPanel>
+                  </Border>
+
+                </Grid>
               </GroupBox>
 
             </StackPanel>
