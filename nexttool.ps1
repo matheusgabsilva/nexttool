@@ -1817,17 +1817,128 @@ function Invoke-Async {
         <TabItem Header="  Rede  ">
           <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#21252B">
             <StackPanel Margin="20,16">
+
               <GroupBox Header="Teste de Rede">
                 <StackPanel Margin="4,4">
                   <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                     <TextBox x:Name="UTxtPingHost" Text="8.8.8.8" Width="200" Margin="0,0,8,0"/>
-                    <Button x:Name="UBtnPing"           Content="Ping"              Padding="14,8" Margin="0,0,8,0"/>
-                    <Button x:Name="UBtnTracert"        Content="Tracert"           Padding="14,8" Margin="0,0,8,0"
+                    <Button x:Name="UBtnPing"         Content="Ping"           Padding="14,8" Margin="0,0,8,0"/>
+                    <Button x:Name="UBtnTracert"      Content="Tracert"        Padding="14,8" Margin="0,0,8,0"
                             Background="#4B5263" Foreground="#ABB2BF"/>
-                    <Button x:Name="UBtnTestarConect"   Content="Testar Conexao"    Padding="14,8"/>
+                    <Button x:Name="UBtnTestarConect" Content="Testar Conexao" Padding="14,8"/>
                   </StackPanel>
+                  <TextBlock Foreground="#5C6370" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"
+                             Text="Digite um IP ou endereco (ex: 8.8.8.8, google.com) e clique em Ping ou Tracert. Os resultados aparecem no Log abaixo."/>
                 </StackPanel>
               </GroupBox>
+
+              <!-- Guia de ferramentas -->
+              <GroupBox Header="Como usar cada ferramenta">
+                <StackPanel Margin="4,4">
+
+                  <!-- Ping -->
+                  <Border Background="#1E2128" CornerRadius="6" Padding="14,10" Margin="0,0,0,8">
+                    <StackPanel>
+                      <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <Border Background="#61AFEF" CornerRadius="3" Padding="8,2" Margin="0,0,10,0">
+                          <TextBlock Text="PING" Foreground="#1E2128" FontWeight="Bold" FontSize="11"/>
+                        </Border>
+                        <TextBlock Text="Verifica se um endereco esta acessivel" Foreground="#ABB2BF" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                      </StackPanel>
+                      <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="12" Margin="0,0,0,6"
+                                 Text="Envia 4 pacotes para o destino e mede o tempo de resposta (latencia) em milissegundos."/>
+                      <Border Background="#21252B" CornerRadius="4" Padding="10,8">
+                        <StackPanel>
+                          <TextBlock Foreground="#98C379" FontSize="11" FontWeight="SemiBold" Text="Como interpretar:" Margin="0,0,0,4"/>
+                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
+                            <Run Foreground="#98C379" Text="Latencia abaixo de 50ms "/>
+                            <Run Foreground="#ABB2BF" Text="— conexao excelente, ideal para trabalho remoto e videoconferencia."/>
+                          </TextBlock>
+                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
+                            <Run Foreground="#E5C07B" Text="Latencia entre 50ms e 150ms "/>
+                            <Run Foreground="#ABB2BF" Text="— conexao aceitavel, pode haver lentidao em chamadas de video."/>
+                          </TextBlock>
+                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
+                            <Run Foreground="#E06C75" Text="Latencia acima de 150ms ou pacotes perdidos "/>
+                            <Run Foreground="#ABB2BF" Text="— problema de rede. Contate o suporte."/>
+                          </TextBlock>
+                          <TextBlock TextWrapping="Wrap" FontSize="11">
+                            <Run Foreground="#E06C75" Text="Sem resposta (timeout) "/>
+                            <Run Foreground="#ABB2BF" Text="— destino inacessivel ou sem internet. Tente pingar 8.8.8.8 (Google DNS) para confirmar."/>
+                          </TextBlock>
+                        </StackPanel>
+                      </Border>
+                    </StackPanel>
+                  </Border>
+
+                  <!-- Tracert -->
+                  <Border Background="#1E2128" CornerRadius="6" Padding="14,10" Margin="0,0,0,8">
+                    <StackPanel>
+                      <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <Border Background="#4B5263" CornerRadius="3" Padding="8,2" Margin="0,0,10,0">
+                          <TextBlock Text="TRACERT" Foreground="#ABB2BF" FontWeight="Bold" FontSize="11"/>
+                        </Border>
+                        <TextBlock Text="Mapeia o caminho ate o destino" Foreground="#ABB2BF" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                      </StackPanel>
+                      <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="12" Margin="0,0,0,6"
+                                 Text="Mostra cada roteador (salto) pelo qual o pacote passa ate chegar ao destino. Util para identificar onde a conexao esta lenta ou bloqueada."/>
+                      <Border Background="#21252B" CornerRadius="4" Padding="10,8">
+                        <StackPanel>
+                          <TextBlock Foreground="#98C379" FontSize="11" FontWeight="SemiBold" Text="Como interpretar:" Margin="0,0,0,4"/>
+                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
+                            <Run Foreground="#ABB2BF" Text="Cada linha representa um salto (roteador). O numero a esquerda indica a ordem."/>
+                          </TextBlock>
+                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
+                            <Run Foreground="#E5C07B" Text="Salto com * * * "/>
+                            <Run Foreground="#ABB2BF" Text="— roteador nao responde ao tracert (normal em alguns provedores), mas o trafego ainda passa."/>
+                          </TextBlock>
+                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
+                            <Run Foreground="#E06C75" Text="Latencia que aumenta muito em um salto especifico "/>
+                            <Run Foreground="#ABB2BF" Text="— indica gargalo ou problema naquele ponto da rede."/>
+                          </TextBlock>
+                          <TextBlock TextWrapping="Wrap" FontSize="11">
+                            <Run Foreground="#E06C75" Text="Tracert para no meio do caminho "/>
+                            <Run Foreground="#ABB2BF" Text="— conexao bloqueada por firewall ou roteador com problema."/>
+                          </TextBlock>
+                        </StackPanel>
+                      </Border>
+                    </StackPanel>
+                  </Border>
+
+                  <!-- Testar Conexao -->
+                  <Border Background="#1E2128" CornerRadius="6" Padding="14,10">
+                    <StackPanel>
+                      <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <Border Background="#61AFEF" CornerRadius="3" Padding="8,2" Margin="0,0,10,0">
+                          <TextBlock Text="TESTAR CONEXAO" Foreground="#1E2128" FontWeight="Bold" FontSize="11"/>
+                        </Border>
+                        <TextBlock Text="Testa internet e DNS simultaneamente" Foreground="#ABB2BF" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                      </StackPanel>
+                      <TextBlock TextWrapping="Wrap" Foreground="#5C6370" FontSize="12" Margin="0,0,0,6"
+                                 Text="Pinga 8.8.8.8 (Google), 1.1.1.1 (Cloudflare) e google.com. Permite distinguir entre falha de internet e falha de DNS."/>
+                      <Border Background="#21252B" CornerRadius="4" Padding="10,8">
+                        <StackPanel>
+                          <TextBlock Foreground="#98C379" FontSize="11" FontWeight="SemiBold" Text="Diagnostico rapido:" Margin="0,0,0,4"/>
+                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
+                            <Run Foreground="#E06C75" Text="8.8.8.8 falha, google.com falha "/>
+                            <Run Foreground="#ABB2BF" Text="— sem internet. Verifique o cabo, Wi-Fi ou contate o provedor."/>
+                          </TextBlock>
+                          <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,3">
+                            <Run Foreground="#E5C07B" Text="8.8.8.8 ok, google.com falha "/>
+                            <Run Foreground="#ABB2BF" Text="— internet ok, mas DNS com problema. Use 'Flush DNS' ou 'Renovar IP' na aba Limpeza."/>
+                          </TextBlock>
+                          <TextBlock TextWrapping="Wrap" FontSize="11">
+                            <Run Foreground="#98C379" Text="Tudo ok "/>
+                            <Run Foreground="#ABB2BF" Text="— conexao funcionando normalmente."/>
+                          </TextBlock>
+                        </StackPanel>
+                      </Border>
+                    </StackPanel>
+                  </Border>
+
+                </StackPanel>
+              </GroupBox>
+
             </StackPanel>
           </ScrollViewer>
         </TabItem>
