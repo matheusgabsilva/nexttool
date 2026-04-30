@@ -3412,7 +3412,7 @@ $LvFiles.Add_MouseDoubleClick({
 $BtnLimparLog.Add_Click({ $LogBox.Items.Clear() })
 $BtnExportLog.Add_Click({
     $ts   = Get-Date -Format "yyyyMMdd_HHmmss"
-    $dest = "$script:REPORT_DIR\nexttool_log_$ts.txt"
+    $dest = "$script:REPORT_DIR\Next_Suporte_$($env:COMPUTERNAME)_$ts.txt"
     $LogBox.Items | ForEach-Object { $_.Text } | Out-File -FilePath $dest -Encoding UTF8
     Write-Log "Log exportado: $dest" "OK"
 })
